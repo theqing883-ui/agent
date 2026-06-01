@@ -1,0 +1,32 @@
+package com.kaer.agent.tools.test;
+
+import com.kaer.agent.tools.Tool;
+import com.kaer.agent.tools.ToolType;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
+
+@Component
+public class WeatherTool implements Tool {
+
+    @Override
+    public String getName() {
+        return "weatherTool";
+    }
+
+    @Override
+    public String getDescription() {
+        return "获取天气";
+    }
+
+    @Override
+    public ToolType getType() {
+        return ToolType.FIXED;
+    }
+
+    @org.springframework.ai.tool.annotation.Tool(name = "weather", description = "获取天气")
+    public String getWeather(@ToolParam(description = "当前城市") String city,
+                             @ToolParam(description = "当前日期") String date) {
+        // 模拟模拟调用天气 API
+        return city + date + "的天气查询结果：晴转多云，温度 25°C，湿度 60%";
+    }
+}
