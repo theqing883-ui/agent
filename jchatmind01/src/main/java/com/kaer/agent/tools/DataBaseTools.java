@@ -45,7 +45,13 @@ public class DataBaseTools implements Tool {
      * @param sql SQL 查询语句（必须以 SELECT 开头）
      * @return 格式化的表格形式查询结果字符串
      */
-    @org.springframework.ai.tool.annotation.Tool(name = "databaseQuery", description = "用于在 PostgreSQL 中执行只读查询（SELECT）。接收由模型生成的查询语句，并返回结构化数据结果。该工具仅用于检索数据，严禁任何写入或修改数据库的语句。")
+    @org.springframework.ai.tool.annotation.Tool(
+            name = "databaseQuery",
+            description = "执行只读的 PostgreSQL 查询（仅限 SELECT）。请严格根据以下已知表结构编写 SQL，绝不可捏造或猜测不存在的列名：" +
+                    "1. knowledge_base 表: id, name, description, metadata, created_at, updated_at。" +
+                    "2. document 表: id, kb_id, filename, filetype, size, metadata, created_at, updated_at。" +
+                    "【警告】严禁使用此工具查询 chunk_bge_m3 表获取文档内容！如果用户问题需要查阅文档具体内容，请务必调用 KnowledgeTool。"
+    )
     public String query(@ToolParam(description = "一条在 PostgreSQL 中执行查询（SELECT）的SQL语句") String sql) {
         try {
             // ========== 安全校验阶段 ==========

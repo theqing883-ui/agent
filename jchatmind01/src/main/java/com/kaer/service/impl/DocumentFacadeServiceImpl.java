@@ -28,7 +28,6 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,7 +39,6 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
     private final MarkdownParserService markdownParserService;
     private final RagService ragService;
     private final ChunkBgeM3Mapper chunkBgeM3Mapper;
-    private final RedisVectorService redisVectorService;
 
 
     /**
@@ -183,17 +181,6 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
             log.warn("删除文件失败，继续删除文档记录: documentId={}, error={}", documentId, e.getMessage());
         }
 
-        // 4. 删除Redis中该文档关联的向量数据
-        try {
-            List<ChunkBgeM3> chunks = chunkBgeM3Mapper.selectByDocId(documentId);
-            if(chunks != null && !chunks.isEmpty()) {
-                List<String> chunkIds = chunks.stream().map(ChunkBgeM3::getId).toList();
-                redisVectorService.deleteVector(chunkIds);
-                log.info("已删除Redis向量数据: documentId={}, count={}", documentId, chunkIds.size());
-            }
-        } catch (Exception e) {
-            log.warn("删除Redis向量数据失败，继续删除文档记录: documentId={}, error={}", documentId, e.getMessage());
-        }
 
         // 5. 删除数据库中的文档记录 （CASCADE会自动清理chunk_bge_m3表）
         int result = documentMapper.deleteById(documentId);
@@ -339,7 +326,7 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
                     int result = chunkBgeM3Mapper.insert(chunkBgeM3);
                     if (result > 0) {
                         chunkCount++;
-                        redisVectorService.storeVector(chunkBgeM3.getId(), titleEmbedding, kbId);
+//                        redisVectorService.storeVector(chunkBgeM3.getId(), titleEmbedding, kbId);
                         log.debug("创建 chunk 成功: title={}, chunkId={}", title, chunkBgeM3.getId());
                     } else {
                         log.warn("创建 chunk 失败: title={}", title);

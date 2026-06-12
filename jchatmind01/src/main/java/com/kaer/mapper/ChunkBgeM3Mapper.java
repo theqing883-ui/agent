@@ -33,4 +33,16 @@ public interface ChunkBgeM3Mapper {
     List<ChunkBgeM3> selectByDocId(@Param("docId") String docId);
 
     List<ChunkBgeM3> selectByKbId(@Param("kbId") String kbId);
+
+
+    List<String> vectorSearchIds(@Param("kbId") String kbId,
+                                 @Param("queryVector") String queryVector,
+                                 @Param("limit") int limit);
+
+
+    List<String> textSearchIds(@Param("kbId") String kbId,
+                               @Param("keyword") String keyword,
+                               @Param("limit") int limit);
+
+
 }

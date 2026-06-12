@@ -24,7 +24,7 @@ import java.util.Set;
  * 使用HNSW算法进行高效的近似最近邻搜索
  */
 @Slf4j
-@Service
+//@Service
 public class RedisVectorService {
 
     /**
@@ -33,7 +33,7 @@ public class RedisVectorService {
     private static final String KEY_PREFIX = "chunk:";
 
     /**
-     * 向量索引名称
+     * 向量索引名称a
      */
     private static final String INDEX_NAME = "idx:chunk_bge_m3";
 
@@ -84,7 +84,7 @@ public class RedisVectorService {
                 // 设置索引类型为HASH，键前缀为"chunk:"
                 FTCreateParams.createParams()
                         .on(IndexDataType.HASH)
-                        .prefix("chunk:"),
+                        .prefix(KEY_PREFIX),
                 // 定义向量字段
                 VectorField.builder()
                         .fieldName("embedding")
@@ -152,6 +152,8 @@ public class RedisVectorService {
                 .map(doc -> doc.getId().substring(KEY_PREFIX.length()))
                 .toList();
     }
+
+
 
     /**
      * 删除指定的向量数据

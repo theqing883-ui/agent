@@ -123,4 +123,22 @@
         LIMIT #{limit}
         ]]>
     </select>
+
+    <select id="vectorSearchIds" resultType="java.lang.String">
+        SELECT id
+        FROM chunk_bge_m3
+        WHERE kb_id = #{kbId}::uuid
+        ORDER BY embedding <![CDATA[ <=> ]]> #{queryVector}::vector
+            LIMIT #{limit}
+    </select>
+
+    <select id="textSearchIds" resultType="java.lang.String">
+        SELECT id
+        FROM chunk_bge_m3
+        WHERE kb_id = #{kbId}::uuid
+          AND fts @@ websearch_to_tsquery('simple'
+            , #{keyword})
+        ORDER BY ts_rank(fts, websearch_to_tsquery('simple', #{keyword})) DESC
+            LIMIT #{limit}
+    </select>
 </mapper>

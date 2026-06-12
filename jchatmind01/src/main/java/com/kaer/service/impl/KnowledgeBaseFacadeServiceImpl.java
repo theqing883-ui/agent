@@ -3,10 +3,8 @@ package com.kaer.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kaer.converter.KnowledgeBaseConverter;
 import com.kaer.exception.BizException;
-import com.kaer.mapper.ChunkBgeM3Mapper;
 import com.kaer.mapper.KnowledgeBaseMapper;
 import com.kaer.model.dto.KnowledgeBaseDTO;
-import com.kaer.model.entity.ChunkBgeM3;
 import com.kaer.model.entity.KnowledgeBase;
 import com.kaer.model.request.CreateKnowledgeBaseRequest;
 import com.kaer.model.request.UpdateKnowledgeBaseRequest;
@@ -28,8 +26,6 @@ import java.util.List;
 public class KnowledgeBaseFacadeServiceImpl implements KnowledgeBaseFacadeService {
     private final KnowledgeBaseConverter knowledgeBaseConverter;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
-    private final ChunkBgeM3Mapper chunkBgeM3Mapper;
-    private final RedisVectorService redisVectorService;
 
 
     /**
@@ -109,17 +105,6 @@ public class KnowledgeBaseFacadeServiceImpl implements KnowledgeBaseFacadeServic
             throw new BizException("知识库不存在: " + knowledgeBaseId);
         }
 
-        // 删除Redis中该知识库关联的向量数据
-        try {
-            List<ChunkBgeM3> chunkBgeM3s = chunkBgeM3Mapper.selectByKbId(knowledgeBaseId);
-            if (chunkBgeM3s != null && !chunkBgeM3s.isEmpty()) {
-                List<String> chunkIds = chunkBgeM3s.stream().map(ChunkBgeM3::getId).toList();
-                redisVectorService.deleteVector(chunkIds);
-                log.info("已删除Redis向量数据: kbId={}, count={}", knowledgeBaseId, chunkIds.size());
-            }
-        } catch (Exception e) {
-            log.warn("删除Redis向量数据失败，继续删除知识库记录: kbId={}, error={}", knowledgeBaseId, e.getMessage());
-        }
 
         // 执行删除操作（CASCADE会自动清理chunk_bge_m3表）
         int result = knowledgeBaseMapper.deleteById(knowledgeBaseId);
