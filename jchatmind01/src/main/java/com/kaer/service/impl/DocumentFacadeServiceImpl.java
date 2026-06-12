@@ -268,9 +268,13 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
         }
     }
 
+    // 滑动窗口切分参数：窗口大小和重叠大小（字符数）
+    private static final int CHUNK_SIZE = 512;//512
+    private static final int CHUNK_OVERLAP = 128;//128
+
     /**
      * 处理 Markdown 文件，解析章节并生成 chunks 用于 RAG 检索
-     * 流程：读取文件 -> 解析 Markdown -> 遍历章节 -> 向量化标题 -> 存储 chunk
+     * 流程：读取文件 -> 解析 Markdown -> 遍历章节 -> 滑动窗口切分 -> 向量化（标题+内容） -> 存储 chunk
      *
      * @param kbId         知识库ID
      * @param documentId   文档ID
@@ -287,9 +291,6 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
             try (InputStream inputStream = Files.newInputStream(filePath)) {
                 List<MarkdownParserService.MarkdownSection> sections = markdownParserService.parseMarkdown(inputStream);
 
-                // 临时调试输出（可移除）
-                System.out.println(sections);
-
                 // 3. 检查解析结果
                 if (sections == null || sections.isEmpty()) {
                     log.warn("Markdown 文档解析后没有找到任何章节: documentId={}", documentId);
@@ -299,7 +300,7 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
                 LocalDateTime now = LocalDateTime.now();
                 int chunkCount = 0;
 
-                // 4. 遍历章节，为每个章节生成一个 chunk
+                // 4. 遍历章节，对每个章节做滑动窗口切分
                 for (MarkdownParserService.MarkdownSection section : sections) {
                     String title = section.getTitle();
                     String content = section.getContent();
@@ -309,27 +310,45 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
                         continue;
                     }
 
-                    // 5. 使用 RAG 服务对标题进行向量化（生成 embedding）
-                    float[] titleEmbedding = ragService.embed(title);
+                    // 4.1 对章节内容做滑动窗口切分
+                    List<String> chunks = splitContentWithOverlap(content != null ? content : "", CHUNK_SIZE, CHUNK_OVERLAP);
 
-                    // 6. 构建 ChunkBgeM3 实体
-                    ChunkBgeM3 chunkBgeM3 = ChunkBgeM3.builder().kbId(kbId)                      // 关联知识库
-                            .docId(documentId)                // 关联文档
-                            .content(content != null ? content : "")  // 章节内容
-                            .metadata(null)                   // 元数据（可扩展存储标题等信息）
-                            .embedding(titleEmbedding)        // 标题的向量表示
-                            .createdAt(now)                   // 创建时间
-                            .updatedAt(now)                   // 更新时间
-                            .build();
+                    // 4.2 遍历每个窗口，生成一个 chunk
+                    for (int i = 0; i < chunks.size(); i++) {
+                        String chunkText = chunks.get(i);
 
-                    // 7. 插入数据库
-                    int result = chunkBgeM3Mapper.insert(chunkBgeM3);
-                    if (result > 0) {
-                        chunkCount++;
-//                        redisVectorService.storeVector(chunkBgeM3.getId(), titleEmbedding, kbId);
-                        log.debug("创建 chunk 成功: title={}, chunkId={}", title, chunkBgeM3.getId());
-                    } else {
-                        log.warn("创建 chunk 失败: title={}", title);
+                        // 跳过空窗口
+                        if (chunkText.trim().isEmpty()) {
+                            continue;
+                        }
+
+                        // 5. 向量化：标题 + 内容一起生成 embedding（而非仅标题）
+                        String textToEmbed = title + "\n" + chunkText;
+                        float[] embedding = ragService.embed(textToEmbed);
+
+                        // 6. 构建元数据 JSON，记录标题和窗口位置信息
+                        String metadata = buildChunkMetadata(title, i, chunks.size());
+
+                        // 7. 构建 ChunkBgeM3 实体
+                        ChunkBgeM3 chunkBgeM3 = ChunkBgeM3.builder()
+                                .kbId(kbId)
+                                .docId(documentId)
+                                .content(title + "\n" + chunkText)   // 检索返回时自带标题上下文
+                                .metadata(metadata)                   // 元数据：标题、窗口序号等
+                                .embedding(embedding)                 // 标题+内容的向量表示
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+
+                        // 8. 插入数据库
+                        int result = chunkBgeM3Mapper.insert(chunkBgeM3);
+                        if (result > 0) {
+                            chunkCount++;
+                            log.debug("创建 chunk 成功: title={}, window={}/{}, chunkId={}",
+                                    title, i + 1, chunks.size(), chunkBgeM3.getId());
+                        } else {
+                            log.warn("创建 chunk 失败: title={}, window={}/{}", title, i + 1, chunks.size());
+                        }
                     }
                 }
 
@@ -340,6 +359,107 @@ public class DocumentFacadeServiceImpl implements DocumentFacadeService {
             // 设计考虑：Markdown 处理失败不应影响文档上传的主流程
             log.error("处理 Markdown 文档失败: documentId={}", documentId, e);
         }
+    }
+
+    /**
+     * 滑动窗口切分文本（参考 LangChain RecursiveCharacterTextSplitter）
+     * 将长文本按固定窗口大小切分为多个有重叠的片段
+     *
+     * @param text      待切分的文本
+     * @param chunkSize 窗口大小（字符数）
+     * @param overlap   相邻窗口之间的重叠字符数
+     * @return 切分后的文本片段列表
+     */
+    private List<String> splitContentWithOverlap(String text, int chunkSize, int overlap) {
+        List<String> chunks = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            chunks.add("");
+            return chunks;
+        }
+
+        // 短文本无需切分，直接返回
+        if (text.length() <= chunkSize) {
+            chunks.add(text);
+            return chunks;
+        }
+
+        int start = 0;
+        while (start < text.length()) {
+            int end = Math.min(start + chunkSize, text.length());
+
+            // 尽量在自然断点处切分（句号、换行等），避免截断句子
+            if (end < text.length()) {
+                // 在目标位置前后 64 个字符范围内寻找最佳断点
+                int searchStart = Math.max(start + chunkSize - 64, start);
+                int breakPoint = findBestBreakPoint(text, searchStart, end);
+                if (breakPoint > start) {
+                    end = breakPoint;
+                }
+            }
+
+            chunks.add(text.substring(start, end).trim());
+            start = end - overlap;
+
+            // 防止死循环：确保 start 始终前进
+            if (start >= text.length() - overlap && start > 0) {
+                break;
+            }
+        }
+        return chunks;
+    }
+
+    /**
+     * 在指定范围内寻找最佳断点
+     * 优先级：句末标点（。！？）> 换行符 > 分号逗号 > 原 end 位置
+     *
+     * @param text       文本
+     * @param searchFrom 搜索起始位置
+     * @param searchTo   搜索结束位置
+     * @return 最佳断点位置（字符索引）
+     */
+    private int findBestBreakPoint(String text, int searchFrom, int searchTo) {
+        // 优先级 1: 句末标点（。！？! ? .）
+        int breakPoint = findLastOf(text, searchFrom, searchTo, '。', '！', '？', '!', '?', '.');
+        if (breakPoint > 0) return breakPoint + 1; // 断在标点之后
+
+        // 优先级 2: 换行符
+        breakPoint = findLastOf(text, searchFrom, searchTo, '\n');
+        if (breakPoint > 0) return breakPoint + 1;
+
+        // 优先级 3: 分号或逗号
+        breakPoint = findLastOf(text, searchFrom, searchTo, '；', ';', '，', ',');
+        if (breakPoint > 0) return breakPoint + 1;
+
+        // 优先级 4: 空格
+        breakPoint = findLastOf(text, searchFrom, searchTo, ' ');
+        if (breakPoint > 0) return breakPoint + 1;
+
+        // 兜底: 返回原 end 位置
+        return searchTo;
+    }
+
+    /**
+     * 在指定范围内从后往前查找任意一个匹配字符
+     */
+    private int findLastOf(String text, int from, int to, char... chars) {
+        for (int i = to; i >= from && i < text.length(); i--) {
+            char c = text.charAt(i);
+            for (char target : chars) {
+                if (c == target) return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 构建 chunk 的元数据 JSON 字符串
+     * 格式: {"title":"章节标题","chunkIndex":0,"totalChunks":3}
+     */
+    private String buildChunkMetadata(String title, int chunkIndex, int totalChunks) {
+        // 对标题中的双引号做转义
+        String escapedTitle = title.replace("\\", "\\\\").replace("\"", "\\\"");
+        return String.format("{\"title\":\"%s\",\"chunkIndex\":%d,\"totalChunks\":%d}",
+                escapedTitle, chunkIndex, totalChunks);
     }
 
     // 解析文件类型
