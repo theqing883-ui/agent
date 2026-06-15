@@ -34,10 +34,10 @@ import java.util.stream.IntStream;
 
 @Slf4j
 public class JChatMind {
-    // 最多循环次数
-    private static final Integer MAX_STEPS = 20;
     // AI 返回的，已经持久化，但是需要 sse 发给前端的消息
     private final List<ChatMessageDTO> pendingChatMessages = new ArrayList<>();
+    // 默认最多循环次数（可由 setter 覆盖）
+    private int maxSteps = 20;
     // 智能体 ID
     private String agentId;
     // 名称
@@ -60,6 +60,9 @@ public class JChatMind {
     private TokenAwareChatMemory chatMemory;
     // 模型的聊天会话 ID
     private String chatSessionId;
+    // 子任务模型的聊天会话 ID
+//    private String childChatSessionId;
+
     // ChatOptions（含上下文窗口配置）
     private AgentDTO.ChatOptions agentChatOptions;
     // SSE 服务
@@ -123,8 +126,11 @@ public class JChatMind {
         }
 
         try {
-            // Agent 主循环：最多执行 MAX_STEPS 次，或直到状态变为 FINISHED
-            for (int i = 0; i < MAX_STEPS && agentState != AgentState.FINISHED; i++) {
+            // 设置 Agent 上下文（用于 DelegationTool 获取父会话信息）
+            AgentContextHolder.set(this.chatSessionId, this.agentId);
+
+            // Agent 主循环：最多执行 maxSteps 次，或直到状态变为 FINISHED
+            for (int i = 0; i < this.maxSteps && agentState != AgentState.FINISHED; i++) {
                 // 当前步骤编号（从1开始）
                 int currentStep = i + 1;
 
@@ -132,9 +138,9 @@ public class JChatMind {
                 step();
 
                 // 检查是否达到最大步骤限制
-                if (currentStep >= MAX_STEPS) {
+                if (currentStep >= this.maxSteps) {
                     agentState = AgentState.FINISHED;
-                    log.warn("Agent {} reached max steps of {}", agentId, MAX_STEPS);
+                    log.warn("Agent {} reached max steps of {}", agentId, this.maxSteps);
                 }
             }
 
@@ -145,6 +151,9 @@ public class JChatMind {
             agentState = AgentState.ERROR;
             log.error("Error running agent", e);
             throw new RuntimeException("Error running agent", e);
+        } finally {
+            // 清除 Agent 上下文，防止 ThreadLocal 内存泄漏
+            AgentContextHolder.clear();
         }
     }
 
@@ -329,7 +338,6 @@ public class JChatMind {
 
     // 发送消息到前端
     private void refreshPendingChatMessages() {
-        // 从pendingChatMessages中获取最新的聊天记录
         for (ChatMessageDTO message : this.pendingChatMessages) {
             ChatMessageVO chatMessageVO = chatMessageConverter.toVO(message);
             SseMessage sseMessage = SseMessage.builder().type(SseMessage.Type.AI_GENERATED_CONTENT)
@@ -338,7 +346,13 @@ public class JChatMind {
                     .metadata(SseMessage.Metadata.builder()
                             .chatMessageId(message.getId())
                             .build()).build();
-            sseService.send(this.chatSessionId, sseMessage);
+            try {
+                sseService.send(this.chatSessionId, sseMessage);
+            } catch (Exception e) {
+                // 如果是子 Agent，这里必然报错，但我们只打印 debug 日志，不阻断程序运行
+                log.debug("无法发送 SSE 消息至会话 {} (可能是子 Agent 正在静默运行): {}",
+                        this.chatSessionId, e.getMessage());
+            }
         }
         pendingChatMessages.clear();
     }
@@ -385,6 +399,36 @@ public class JChatMind {
         }
     }
 
+
+    // ===== 多 Agent 委派支持 =====
+
+    /**
+     * 设置最大 think-execute 循环次数（用于子 Agent 的缩减步数）。
+     */
+    public void setMaxSteps(int maxSteps) {
+        this.maxSteps = maxSteps;
+    }
+
+    /**
+     * 获取当前 Agent 状态。
+     */
+    public AgentState getAgentState() {
+        return agentState;
+    }
+
+    /**
+     * 获取 Token 感知的聊天记忆（用于委派时提取子 Agent 结论）。
+     */
+    public TokenAwareChatMemory getChatMemory() {
+        return chatMemory;
+    }
+
+    /**
+     * 获取当前会话 ID（用于委派场景下外部访问子 Agent 的会话）。
+     */
+    public String getChatSessionId() {
+        return chatSessionId;
+    }
 
     @Override
     public String toString() {

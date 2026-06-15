@@ -8,6 +8,8 @@
         <id property="id" column="id" jdbcType="VARCHAR"/>
         <result property="agentId" column="agent_id" jdbcType="VARCHAR"/>
         <result property="title" column="title" jdbcType="VARCHAR"/>
+        <result property="parentSessionId" column="parent_session_id" jdbcType="VARCHAR"/>
+        <result property="sessionType" column="session_type" jdbcType="VARCHAR"/>
         <result property="metadata" column="metadata" jdbcType="VARCHAR"/>
         <result property="createdAt" column="created_at" jdbcType="TIMESTAMP"/>
         <result property="updatedAt" column="updated_at" jdbcType="TIMESTAMP"/>
@@ -15,42 +17,59 @@
 
     <sql id="Base_Column_List">
         id
-        ,agent_id,title,
-        metadata,created_at,updated_at
+        ,
+        agent_id, title,
+        parent_session_id, session_type,
+        metadata, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.kaer.model.entity.ChatSession"
             keyColumn="id" keyProperty="id" useGeneratedKeys="true">
         INSERT INTO chat_session
         (agent_id,
-         title,
-         metadata,
-         created_at,
-         updated_at)
+        title,
+        parent_session_id,
+        session_type,
+        metadata,
+        created_at,
+        updated_at)
         VALUES (CAST(#{agentId} AS uuid),
-                #{title},
-                CAST(#{metadata} AS jsonb),
-                #{createdAt},
-                #{updatedAt})
+        #{title},
+        CAST(#{parentSessionId} AS uuid),
+        <choose>
+            <when test="sessionType != null">#{sessionType}</when>
+            <otherwise>DEFAULT</otherwise>
+        </choose>
+        ,
+        CAST(#{metadata} AS jsonb),
+        #{createdAt},
+        #{updatedAt})
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">
         SELECT id,
                agent_id,
                title,
+               parent_session_id,
+               session_type,
                metadata::text AS metadata, created_at,
                updated_at
         FROM chat_session
         WHERE id = CAST(#{id} AS uuid)
+          AND session_type = 'PARENT'
     </select>
+
 
     <select id="selectAll" resultMap="BaseResultMap">
         SELECT id,
                agent_id,
                title,
+               parent_session_id,
+               session_type,
                metadata::text AS metadata, created_at,
                updated_at
         FROM chat_session
+        WHERE session_type = 'PARENT'
         ORDER BY updated_at DESC
     </select>
 
@@ -58,11 +77,27 @@
         SELECT id,
                agent_id,
                title,
+               parent_session_id,
+               session_type,
                metadata::text AS metadata, created_at,
                updated_at
         FROM chat_session
         WHERE agent_id = CAST(#{agentId} AS uuid)
+          AND session_type = 'PARENT'
         ORDER BY updated_at DESC
+    </select>
+
+    <select id="selectByParentSessionId" resultMap="BaseResultMap">
+        SELECT id,
+               agent_id,
+               title,
+               parent_session_id,
+               session_type,
+               metadata::text AS metadata, created_at,
+               updated_at
+        FROM chat_session
+        WHERE parent_session_id = CAST(#{parentSessionId} AS uuid)
+        ORDER BY created_at ASC
     </select>
 
     <delete id="deleteById">

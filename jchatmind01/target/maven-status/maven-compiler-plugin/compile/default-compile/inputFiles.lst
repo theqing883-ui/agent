@@ -1,8 +1,11 @@
+E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\AgentContextHolder.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\AgentState.java
+E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\DelegationConfig.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\JChatMind.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\JChatMindFactory.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\SystemPrompt.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\tools\DataBaseTools.java
+E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\tools\DelegationTool.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\tools\DirectAnswerTool.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\tools\EmailTools.java
 E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\main\java\com\kaer\agent\tools\FileSystemTools.java

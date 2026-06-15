@@ -19,6 +19,11 @@ public interface ChatSessionMapper {
 
     List<ChatSession> selectByAgentId(String agentId);
 
+    /**
+     * 查询指定父会话下的所有子会话
+     */
+    List<ChatSession> selectByParentSessionId(String parentSessionId);
+
     int deleteById(String id);
 
     int updateById(ChatSession chatSession);

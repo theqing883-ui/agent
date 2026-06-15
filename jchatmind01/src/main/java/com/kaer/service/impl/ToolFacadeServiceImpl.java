@@ -65,6 +65,24 @@ public class ToolFacadeServiceImpl implements ToolFacadeService {
     }
 
     /**
+     * 获取排除指定名称后的工具列表
+     * <p>
+     * 用于子 Agent 创建时过滤掉不应暴露给子 Agent 的工具（如 delegateTask）。
+     *
+     * @param excludeNames 要排除的工具名称列表
+     * @return 过滤后的工具列表
+     */
+    @Override
+    public List<Tool> getToolsExcluding(List<String> excludeNames) {
+        if (excludeNames == null || excludeNames.isEmpty()) {
+            return tools;
+        }
+        return tools.stream()
+                .filter(tool -> !excludeNames.contains(tool.getName()))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 按工具类型过滤工具列表
      * <p>
      * 使用 Stream API 根据工具类型进行过滤，返回匹配的工具列表。

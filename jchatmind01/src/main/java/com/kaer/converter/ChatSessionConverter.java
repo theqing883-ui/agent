@@ -24,8 +24,10 @@ public class ChatSessionConverter {
                 .id(chatSessionDTO.getId())
                 .agentId(chatSessionDTO.getAgentId())
                 .title(chatSessionDTO.getTitle())
-                .metadata(chatSessionDTO.getMetadata() != null 
-                        ? objectMapper.writeValueAsString(chatSessionDTO.getMetadata()) 
+                .parentSessionId(chatSessionDTO.getParentSessionId())
+                .sessionType(chatSessionDTO.getSessionType())
+                .metadata(chatSessionDTO.getMetadata() != null
+                        ? objectMapper.writeValueAsString(chatSessionDTO.getMetadata())
                         : null)
                 .createdAt(chatSessionDTO.getCreatedAt())
                 .updatedAt(chatSessionDTO.getUpdatedAt())
@@ -39,8 +41,10 @@ public class ChatSessionConverter {
                 .id(chatSession.getId())
                 .agentId(chatSession.getAgentId())
                 .title(chatSession.getTitle())
-                .metadata(chatSession.getMetadata() != null 
-                        ? objectMapper.readValue(chatSession.getMetadata(), ChatSessionDTO.MetaData.class) 
+                .parentSessionId(chatSession.getParentSessionId())
+                .sessionType(chatSession.getSessionType())
+                .metadata(chatSession.getMetadata() != null
+                        ? objectMapper.readValue(chatSession.getMetadata(), ChatSessionDTO.MetaData.class)
                         : null)
                 .createdAt(chatSession.getCreatedAt())
                 .updatedAt(chatSession.getUpdatedAt())

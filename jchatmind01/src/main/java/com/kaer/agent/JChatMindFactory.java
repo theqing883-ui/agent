@@ -154,20 +154,80 @@ public class JChatMindFactory {
         // 6. 构建工具回调
         List<ToolCallback> toolCallbacks = buildToolCallbacks(tools);
         // 7. 调用 buildAgentRuntime 组装完整实例
-        return buildAgentRuntime(agent, memory, knowledgeBase, toolCallbacks, chatSessionId);
+        return buildAgentRuntime(agent, memory, knowledgeBase, toolCallbacks, chatSessionId, null);
+    }
+
+    /**
+     * 创建用于任务委派的子 Agent 实例。
+     * <p>
+     * 与 {@link #create(String, String)} 的区别：
+     * <ul>
+     *   <li>可指定最大步数（子 Agent 通常步数更少）</li>
+     *   <li>可排除特定工具（防止子 Agent 递归委派）</li>
+     *   <li>可覆盖系统提示词（子 Agent 使用专注执行的 CHILD_SYSTEM_PROMPT）</li>
+     * </ul>
+     *
+     * @param agentId                   Agent 唯一标识
+     * @param chatSessionId             子会话唯一标识
+     * @param maxSteps                  子 Agent 最大循环步数
+     * @param excludeToolNames          要排除的工具名称列表（如 "delegateTask"）
+     * @param childSystemPromptOverride 子 Agent 系统提示词覆盖（null 则使用 Agent 原始配置）
+     * @return 构建完成的子 JChatMind 实例
+     */
+    public JChatMind createForDelegation(
+            String agentId,
+            String chatSessionId,
+            int maxSteps,
+            List<String> excludeToolNames,
+            String childSystemPromptOverride
+    ) {
+        // 1. 从数据库加载 Agent 配置
+        Agent agent = loadAgent(agentId);
+        // 2. 转换为运行时配置 DTO
+        agentConfig = toAgentConfig(agent);
+        log.debug("createForDelegation agentId={}, sessionId={}, maxSteps={}, excludeTools={}",
+                agentId, chatSessionId, maxSteps, excludeToolNames);
+
+        // 3. 加载聊天历史作为记忆（子会话仅含任务指令的 USER 消息）
+        List<Message> memory = loadMemory(chatSessionId);
+
+        // 4. 解析运行时知识库
+        List<KnowledgeBaseDTO> knowledgeBase = resolveRuntimeKnowledgeBases(agentConfig);
+        // 5. 解析运行时工具，并过滤掉要排除的工具
+        List<Tool> tools = resolveRuntimeTools(agentConfig);
+        if (excludeToolNames != null && !excludeToolNames.isEmpty()) {
+            tools = tools.stream()
+                    .filter(t -> !excludeToolNames.contains(t.getName()))
+                    .collect(Collectors.toList());
+        }
+
+        // 6. 构建工具回调
+        List<ToolCallback> toolCallbacks = buildToolCallbacks(tools);
+
+        // 7. 组装子 Agent 实例（传入系统提示词覆盖）
+        JChatMind childAgent = buildAgentRuntime(agent, memory, knowledgeBase, toolCallbacks,
+                chatSessionId, childSystemPromptOverride);
+
+        // 8. 设置子 Agent 专属的缩减步数
+        childAgent.setMaxSteps(maxSteps);
+
+        return childAgent;
     }
 
     /**
      * 构建 Agent 运行时实例
      * <p>
      * 将所有组件组装成完整的 JChatMind 实例，是创建流程的最后一步。
+     *
+     * @param systemPromptOverride 系统提示词覆盖（null 则使用 Agent 的默认提示词）
      */
     private JChatMind buildAgentRuntime(
             Agent agent,
             List<Message> memory,
             List<KnowledgeBaseDTO> knowledgeBase,
             List<ToolCallback> toolCallbacks,
-            String chatSessionId
+            String chatSessionId,
+            String systemPromptOverride
     ) {
         ChatClient chatClient = chatClientRegistry.get(agent.getModel());
         if (chatClient == null) {
@@ -176,9 +236,14 @@ public class JChatMindFactory {
         // 先清除旧记忆再加载，避免每次 create() 调用时历史消息被重复追加
         chatMemory.clear(chatSessionId);
         chatMemory.add(chatSessionId, memory);
-        if (agent.getSystemPrompt() != null && !agent.getSystemPrompt().isEmpty()) {
+
+        // 使用覆盖的系统提示词，如果没有则使用 Agent 的默认提示词
+        String effectivePrompt = systemPromptOverride != null
+                ? systemPromptOverride
+                : agent.getSystemPrompt();
+        if (effectivePrompt != null && !effectivePrompt.isEmpty()) {
             chatMemory.add(chatSessionId,
-                    new SystemMessage(agent.getSystemPrompt()));
+                    new SystemMessage(effectivePrompt));
         }
 
         return new JChatMind(

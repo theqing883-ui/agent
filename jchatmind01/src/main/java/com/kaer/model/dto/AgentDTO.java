@@ -141,6 +141,11 @@ public class AgentDTO {
         private static final Boolean DEFAULT_MEMORY_NOTE_ENABLED = true;
         /** 默认记忆笔记间隔轮数 */
         private static final Integer DEFAULT_MEMORY_NOTE_INTERVAL_TURNS = 8;
+        // ===== 子 Agent 委派配置 =====
+        /** 默认子 Agent 最大步数 */
+        private static final Integer DEFAULT_CHILD_MAX_STEPS = 10;
+        /** 默认子 Agent 排除的工具 */
+        private static final List<String> DEFAULT_CHILD_EXCLUDED_TOOLS = List.of("delegateTask");
 
         /**
          * 温度参数，控制输出的随机性
@@ -181,13 +186,21 @@ public class AgentDTO {
         /** 每隔多少轮生成一次记忆笔记 */
         private Integer memoryNoteIntervalTurns;
 
+        // ===== 子 Agent 委派配置 =====
+        /** 子 Agent 最大 think-execute 步数 */
+        private Integer childMaxSteps;
+        /** 子 Agent 中排除的工具名称列表 */
+        private List<String> childExcludedTools;
+        /** 子 Agent 的系统提示词覆盖 */
+        private String childSystemPrompt;
+
         /**
          * 创建默认的聊天配置选项
          * <p>使用预定义的默认值构建ChatOptions实例，包含推荐的上下文窗口配置</p>
          *
          * @return ChatOptions 包含默认配置的聊天选项实例
          */
-        public static ChatOptions defaultTokenOptions() {
+        public static ChatOptions defaultTokenOptions() { // 不包含 temperature、Top-P等
             return ChatOptions.builder()
                     .maxContextTokens(DEFAULT_MAX_CONTEXT_TOKENS)
                     .systemPromptReserveTokens(DEFAULT_SYSTEM_PROMPT_RESERVE_TOKENS)
@@ -198,6 +211,9 @@ public class AgentDTO {
                     .summarizationThreshold(DEFAULT_SUMMARIZATION_THRESHOLD)
                     .memoryNoteEnabled(DEFAULT_MEMORY_NOTE_ENABLED)
                     .memoryNoteIntervalTurns(DEFAULT_MEMORY_NOTE_INTERVAL_TURNS)
+                    .childMaxSteps(DEFAULT_CHILD_MAX_STEPS)
+                    .childExcludedTools(DEFAULT_CHILD_EXCLUDED_TOOLS)
+                    .childSystemPrompt(null) // null = 由 DelegationTool 使用静态默认值
                     .build();
         }
         public static ChatOptions defaultOptions() {
@@ -214,6 +230,9 @@ public class AgentDTO {
                     .summarizationThreshold(DEFAULT_SUMMARIZATION_THRESHOLD)
                     .memoryNoteEnabled(DEFAULT_MEMORY_NOTE_ENABLED)
                     .memoryNoteIntervalTurns(DEFAULT_MEMORY_NOTE_INTERVAL_TURNS)
+                    .childMaxSteps(DEFAULT_CHILD_MAX_STEPS)
+                    .childExcludedTools(DEFAULT_CHILD_EXCLUDED_TOOLS)
+                    .childSystemPrompt(null)
                     .build();
         }
     }

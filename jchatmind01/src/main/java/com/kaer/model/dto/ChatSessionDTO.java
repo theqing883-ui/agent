@@ -14,6 +14,16 @@ public class ChatSessionDTO {
 
     private String title;
 
+    /**
+     * 父会话 ID，用于多 Agent 任务委派时关联父子会话。
+     */
+    private String parentSessionId;
+
+    /**
+     * 会话类型：PARENT 或 CHILD。
+     */
+    private String sessionType;
+
     private MetaData metadata;
 
     private LocalDateTime createdAt;

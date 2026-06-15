@@ -1,6 +1,7 @@
 package com.kaer.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kaer.mapper.ChatSessionMapper;
 import com.kaer.message.SseMessage;
 import com.kaer.service.SseService;
 import lombok.AllArgsConstructor;
@@ -31,6 +32,7 @@ public class SseServiceImpl implements SseService {
      * JSON序列化工具，用于将消息对象转换为JSON字符串
      */
     private final ObjectMapper objectMapper;
+
 
     /**
      * 建立SSE连接
