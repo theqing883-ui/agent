@@ -1,0 +1,67 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jchatmind
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  ai:
+    retry:
+      max-attempts: 5
+      backoff:
+        initial-interval: 2000
+        multiplier: 2
+        max-interval: 30000
+    deepseek:
+      api-key: ${API-KEY-deepseek}
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
+    zhipuai:
+      api-key: ${API-KEY-zhipuai}
+      base-url: https://open.bigmodel.cn/api/paas
+      chat:
+        options:
+          model: glm-4.6
+    mcp:
+      client:
+        stdio:
+          connections:
+            bocha-search:
+              command: node
+              args:
+                - "./jchatmind01/mcp/bocha-mcp.js"
+              env:
+                BOCHA_API_KEY: ${API-KEY-bocha-search}
+                BOCHA_ENDPOINT: "https://api.bochaai.com/v1/web-search"
+
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: 3130567547@qq.com
+    password: ${QQ-SMTP}
+    default-encoding: utf-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+mybatis:
+  type-aliases-package: com.kaer.jchatmind.model.entity
+  mapper-locations: classpath:mapper/*.xml
+  type-handlers-package: com.kaer.typehandler
+
+#document:
+#  storage:
+#    base-path: ./data/documents
+
+document:
+  storage:
+    base-path: ./jchatmind01/data/documents
