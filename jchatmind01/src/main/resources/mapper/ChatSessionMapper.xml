@@ -47,6 +47,7 @@
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">
+        <bind name="parentRole" value="@com.kaer.agent.AgentRoleConstants@PARENT" />
         SELECT id,
                agent_id,
                title,
@@ -56,11 +57,12 @@
                updated_at
         FROM chat_session
         WHERE id = CAST(#{id} AS uuid)
-          AND session_type = 'PARENT'
+          AND session_type = #{parentRole}
     </select>
 
 
     <select id="selectAll" resultMap="BaseResultMap">
+        <bind name="parentRole" value="@com.kaer.agent.AgentRoleConstants@PARENT" />
         SELECT id,
                agent_id,
                title,
@@ -69,11 +71,12 @@
                metadata::text AS metadata, created_at,
                updated_at
         FROM chat_session
-        WHERE session_type = 'PARENT'
+        WHERE session_type = #{parentRole}
         ORDER BY updated_at DESC
     </select>
 
     <select id="selectByAgentId" resultMap="BaseResultMap">
+        <bind name="parentRole" value="@com.kaer.agent.AgentRoleConstants@PARENT" />
         SELECT id,
                agent_id,
                title,
@@ -83,7 +86,7 @@
                updated_at
         FROM chat_session
         WHERE agent_id = CAST(#{agentId} AS uuid)
-          AND session_type = 'PARENT'
+          AND session_type = #{parentRole}
         ORDER BY updated_at DESC
     </select>
 

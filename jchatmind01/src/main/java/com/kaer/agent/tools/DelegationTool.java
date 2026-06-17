@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.kaer.agent.AgentRoleConstants.CHILD;
+
 /**
  * 任务委派工具——主 Agent 调用此工具将子任务委派给独立的子 Agent 执行。
  *
@@ -116,7 +118,7 @@ public class DelegationTool implements com.kaer.agent.tools.Tool {
             ChatSession childSession = ChatSession.builder()
                     .agentId(effectiveChildAgentId)
                     .parentSessionId(parentSessionId)
-                    .sessionType("CHILD")
+                    .sessionType(CHILD)
                     .title("子任务: " + (taskDescription.length() > 50
                             ? taskDescription.substring(0, 50) : taskDescription))
                     .createdAt(now)
