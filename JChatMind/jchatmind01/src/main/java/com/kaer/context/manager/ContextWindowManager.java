@@ -1,7 +1,7 @@
 package com.kaer.context.manager;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.kaer.agent.SystemPrompt;
+import com.kaer.agent.ConstantPrompt;
 import com.kaer.context.budget.BudgetAllocator;
 import com.kaer.context.memory.TokenAwareChatMemory;
 import com.kaer.context.model.BudgetAllocation;
@@ -103,9 +103,10 @@ public class ContextWindowManager {
         List<Message> selected = chatMemory.getByTokenBudget(sessionId, allocation.messagesBudget());
 
         // 3. 截断工具响应：限制单个工具响应的最大 token 数，默认 4000
+        //    v2.0: 传入 sessionId 启用 Redis 缓存 + CacheId 截断后缀
         int maxToolResp = config.getMaxToolResponseTokens() != null
                 ? config.getMaxToolResponseTokens() : 4000;
-        selected = contextTruncator.truncateToolResponses(selected, maxToolResp);
+        selected = contextTruncator.truncateToolResponses(selected, maxToolResp, sessionId);
 
         // 4. 获取记忆笔记：从持久化存储中读取该会话的所有记忆笔记
         List<String> memoryNotes = memoryNoteStoreServiceImpl.getNotes(sessionId);
@@ -185,13 +186,6 @@ public class ContextWindowManager {
     }
 
     /**
-     * 添加一条记忆笔记（持久化 + 缓存）。
-     */
-    public void addMemoryNote(String sessionId, String content) {
-        memoryNoteStoreServiceImpl.addNote(sessionId, content);
-    }
-
-    /**
      * 基于最近的对话生成一条记忆笔记。
      */
     public void generateMemoryNote(String sessionId) {
@@ -215,7 +209,7 @@ public class ContextWindowManager {
             String userPrompt = "请提取以下对话片段的记忆笔记：%s \n".formatted(recentContext.toString());
 
             String note = chatClient.prompt()
-                    .system(SystemPrompt.MEMORY_NOTE_SYSTEM_PROMPT)
+                    .system(ConstantPrompt.MEMORY_NOTE_SYSTEM_PROMPT)
                     .user(userPrompt)
                     // 强制模型只输出文本，忽略绑定的工具
                     .options(DefaultToolCallingChatOptions.builder()

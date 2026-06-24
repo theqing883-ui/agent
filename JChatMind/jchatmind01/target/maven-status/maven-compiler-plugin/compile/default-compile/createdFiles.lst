@@ -4,8 +4,10 @@ com\kaer\agent\tools\test\DateTool.class
 com\kaer\agent\skill\SkillMeta.class
 com\kaer\agent\tools\McpToolManager.class
 com\kaer\model\entity\ChatMemoryNote.class
+com\kaer\context\truncator\CacheTruncationSuffixBuilder.class
 com\kaer\mapper\ChatMessageMapper.class
 com\kaer\model\vo\ChatMessageVO$ChatMessageVOBuilder.class
+com\kaer\resilience\RecoveryState.class
 com\kaer\model\vo\ChatMessageVO.class
 com\kaer\agent\skill\SkillManager.class
 com\kaer\exception\BizException.class
@@ -43,13 +45,16 @@ com\kaer\service\impl\ChatMessageFacadeServiceImpl.class
 com\kaer\mapper\ChatSummaryMapper.class
 com\kaer\model\request\UpdateDocumentRequest.class
 com\kaer\model\response\GetDocumentsResponse$GetDocumentsResponseBuilder.class
+com\kaer\context\cache\ToolResultCacheService.class
 com\kaer\context\memory\TokenAwareChatMemory.class
+com\kaer\resilience\ErrorRecoveryEngine.class
 com\kaer\model\vo\ChatSessionVO.class
 com\kaer\service\MemoryNoteStoreService.class
 com\kaer\model\common\ApiResponse.class
 com\kaer\model\response\GetChatSessionResponse$GetChatSessionResponseBuilder.class
 com\kaer\model\request\CreateChatMessageRequest.class
 com\kaer\model\request\UpdateChatMessageRequest.class
+com\kaer\resilience\ErrorRecoveryEngine$ErrorType.class
 com\kaer\controller\RagTestController.class
 com\kaer\mapper\KnowledgeBaseMapper.class
 com\kaer\service\DocumentStorageService.class
@@ -57,6 +62,7 @@ com\kaer\service\impl\ChatSummaryServiceImpl.class
 com\kaer\agent\tools\DelegationTool.class
 com\kaer\model\request\UpdateChatSessionRequest.class
 com\kaer\mapper\ChunkBgeM3Mapper.class
+com\kaer\context\cache\ToolResponseCacheInterceptor.class
 com\kaer\converter\ChatMessageConverter.class
 com\kaer\model\dto\KnowledgeBaseDTO$MetaData.class
 com\kaer\model\response\GetDocumentsResponse.class
@@ -70,6 +76,7 @@ com\kaer\model\response\CreateDocumentResponse.class
 com\kaer\model\dto\AgentDTO$ChatOptions.class
 com\kaer\model\request\CreateChatSessionRequest.class
 com\kaer\service\impl\RagServiceImpl$EmbeddingResponse.class
+com\kaer\resilience\ErrorRecoveryEngine$1.class
 com\kaer\model\response\GetChatMessagesResponse.class
 com\kaer\agent\tools\EmailTools.class
 com\kaer\service\KnowledgeBaseFacadeService.class
@@ -105,8 +112,10 @@ com\kaer\service\impl\SseServiceImpl.class
 com\kaer\model\request\CreateChatMessageRequest$CreateChatMessageRequestBuilder.class
 com\kaer\mapper\DocumentMapper.class
 com\kaer\message\SseMessage$Type.class
+com\kaer\context\cache\ToolResultCacheService$CacheReadResult.class
 com\kaer\controller\ChatMessageController.class
 com\kaer\model\dto\DocumentDTO.class
+com\kaer\resilience\ResilienceConfig$ContextLength.class
 com\kaer\service\ChatMessageFacadeService.class
 com\kaer\converter\AgentConverter.class
 com\kaer\service\DocumentFacadeService.class
@@ -121,10 +130,13 @@ com\kaer\agent\SystemPrompt.class
 com\kaer\model\request\CreateKnowledgeBaseRequest.class
 com\kaer\message\SseMessage$Payload.class
 com\kaer\agent\DelegationConfig.class
+com\kaer\exception\MaxRecoveryExceededException.class
 com\kaer\model\dto\ChatMessageDTO$RoleType.class
 com\kaer\model\entity\Agent.class
+com\kaer\agent\AgentRoleConstants.class
 com\kaer\model\response\CreateKnowledgeBaseResponse.class
 com\kaer\service\ToolFacadeService.class
+com\kaer\agent\tools\ReadCacheTool.class
 com\kaer\model\vo\AgentVO.class
 com\kaer\service\impl\RedisVectorService.class
 com\kaer\model\entity\ChunkBgeM3$ChunkBgeM3Builder.class
@@ -141,8 +153,10 @@ com\kaer\mapper\ChatSessionMapper.class
 com\kaer\context\budget\BudgetAllocator.class
 com\kaer\model\dto\ChatMessageDTO$ChatMessageDTOBuilder.class
 com\kaer\service\AgentFacadeService.class
+com\kaer\resilience\ResilienceConfig.class
 com\kaer\service\impl\MarkdownParserServiceImpl.class
 com\kaer\controller\ChatSessionController.class
+com\kaer\resilience\ResilienceConfig$Backoff.class
 com\kaer\model\request\UpdateKnowledgeBaseRequest.class
 com\kaer\event\listener\ChatEventListener.class
 com\kaer\model\vo\DocumentVO.class
@@ -155,6 +169,7 @@ com\kaer\service\impl\DocumentFacadeServiceImpl.class
 com\kaer\model\response\GetAgentsResponse.class
 com\kaer\model\response\GetKnowledgeBasesResponse$GetKnowledgeBasesResponseBuilder.class
 com\kaer\service\impl\EmailServiceImpl.class
+com\kaer\resilience\ResilienceConfig$Continuation.class
 com\kaer\model\dto\AgentDTO$AgentDTOBuilder.class
 com\kaer\service\impl\AgentFacadeServiceImpl.class
 com\kaer\model\dto\DocumentDTO$MetaData.class
@@ -173,6 +188,7 @@ com\kaer\agent\JChatMindFactory.class
 com\kaer\agent\tools\test\CityTool.class
 com\kaer\model\dto\AgentDTO$ModelType.class
 com\kaer\model\response\GetAgentsResponse$GetAgentsResponseBuilder.class
+com\kaer\config\ResilienceRetryConfig.class
 com\kaer\message\SseMessage.class
 com\kaer\model\response\GetChatSessionsResponse$GetChatSessionsResponseBuilder.class
 com\kaer\agent\tools\TerminateTool.class

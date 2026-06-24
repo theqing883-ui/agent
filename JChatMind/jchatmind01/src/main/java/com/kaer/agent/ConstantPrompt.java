@@ -3,7 +3,7 @@ package com.kaer.agent;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SystemPrompt {
+public class ConstantPrompt {
     public static final String THINK_SYSTEM_PROMPT = """
             现在你是一个智能的的具体「决策模块」
             请根据当前对话上下文，决定下一步的动作。
@@ -14,6 +14,7 @@ public class SystemPrompt {
             - 如果有缺失的上下文时，优先从知识库中进行搜索
             - 目前可用的技能（Skills）列表以及描述：%2$s
             - 如果需要某个技能的支持，可以使用 loadSkill 工具加载该技能的完整指令
+            - 如果需要某个工具结果的完整内容，可以调用"read_cache"工具
             """;
     public static final String MEMORY_NOTE_SYSTEM_PROMPT = """
             你是一个专门用于构建“对话记忆库”的底层处理程序。
@@ -32,17 +33,17 @@ public class SystemPrompt {
      */
     public static final String CHILD_SYSTEM_PROMPT = """
             你是一个【专注执行】的子任务助手。
-
+            
             【核心定位】
             你现在收到的任务是由主智能体委派的独立子任务。请专注于完成这个任务，无需考虑整体规划或大局。
-
+            
             【执行原则】
             1. 直接分析任务要求，确定需要使用的工具
             2. 按步骤执行，每次调用合适的工具
             3. 根据工具返回结果灵活调整策略
             4. 不要规划或分解主任务，只执行被分配的具体工作
             5. 不要尝试委派给其他智能体
-
+            
             【完成条件】
             - 当任务完成时，在最终的回复中给出清晰、完整的结论
             - 然后调用 terminate 工具结束执行
@@ -64,5 +65,44 @@ public class SystemPrompt {
             - 去噪提纯：剔除所有寒暄、情绪表达、重复对话和中间的错误尝试，只保留实质性的业务进展。
             - 长度限制：总字数严格控制在 500 字以内，语言务必精炼。
             """;
+
+    public static final String SUMMARIZE_ERR_SYSTEM_PROMPT = """
+            你是一个专业的对话摘要生成器。请将以下对话历史压缩为一段精炼的摘要,保留所有关键信息（决策、数据、结论），去除冗余表述。
+            输出纯文本，不要使用 markdown 格式。
+            """;
+
+    public static final String SUMMARIZE_ERR_USER_PROMPT = """
+            请将以下对话历史总结为精炼的摘要（保留关键决策、数据、结论），
+            用于在上下文窗口不足时压缩历史：\\n\\n%s
+            """;
+    public static final String TOOL_CACHE_TRUNCATION_SUFFIX = """
+             ---
+             [工具响应已被截断 — 原始长度: %d 字符 / ~%d tokens]
+            
+             上述工具 "%s" 的完整返回结果过大，已截断并缓存在后端。
+                剩余内容: %d 字符 / ~%d tokens (已隐藏)
+            
+              缓存编号: %s
+            
+             如需查看完整/更多内容，请调用内部工具 read_cache，参数如下:
+                - cacheId: "%s"                     (必填)
+                - offset: <起始字符位置，默认 0>            (可选)
+                - length: <读取字符数，默认 8000，最大 16000> (可选)
+            
+            使用示例:
+                - 读取剩余全部内容:  read_cache(cacheId="%s")
+                - 从 5000 字符处读取: read_cache(cacheId="%s", offset=5000)
+                - 读取指定长度:       read_cache(cacheId="%s", offset=0, length=4000)
+            
+             注意: 如果预览信息已足够回答用户问题，不必读取缓存。
+            """;
+    public static final String TOOL_TRUNCATION_SUFFIX = """
+            ---
+            [工具响应已被截断 — 原始长度: %d 字符 / ~%d tokens]
+            剩余 %d 字符 / ~%d tokens 因超出上下文窗口限制被截断。
+            请基于已展示的预览内容回答用户问题。
+            """;
+
+    public static final String TOOL_WHITE_LIST = "read_cache";
 
 }

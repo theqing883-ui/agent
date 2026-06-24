@@ -18,6 +18,7 @@ import com.kaer.model.dto.ChatMessageDTO;
 import com.kaer.model.dto.KnowledgeBaseDTO;
 import com.kaer.model.entity.Agent;
 import com.kaer.model.entity.KnowledgeBase;
+import com.kaer.resilience.ErrorRecoveryEngine;
 import com.kaer.service.ChatMessageFacadeService;
 import com.kaer.service.SseService;
 import com.kaer.service.ToolFacadeService;
@@ -97,6 +98,7 @@ public class JChatMindFactory {
     private final ContextTruncator contextTruncator;
     private final TokenAwareChatMemory chatMemory;
     private final SkillManager skillManager;
+    private final ErrorRecoveryEngine errorRecoveryEngine;
 
     /**
      * 运行时 Agent 配置（线程局部变量，用于构建过程中的临时存储）
@@ -119,7 +121,8 @@ public class JChatMindFactory {
             TokenAwareChatMemory tokenAwareChatMemory,
             KnowledgeBaseMapper knowledgeBaseMapper,
             KnowledgeBaseConverter knowledgeBaseConverter,
-            SkillManager skillManager
+            SkillManager skillManager,
+            ErrorRecoveryEngine errorRecoveryEngine
     ) {
         this.chatClientRegistry = chatClientRegistry;
         this.sseService = sseService;
@@ -134,6 +137,7 @@ public class JChatMindFactory {
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.knowledgeBaseConverter = knowledgeBaseConverter;
         this.skillManager = skillManager;
+        this.errorRecoveryEngine = errorRecoveryEngine;
     }
 
     /**
@@ -270,7 +274,9 @@ public class JChatMindFactory {
                 chatMessageFacadeService,
                 chatMessageConverter,
                 contextWindowManager,
-                contextTruncator
+                contextTruncator,
+                errorRecoveryEngine,
+                agent.getModel()
         );
     }
 

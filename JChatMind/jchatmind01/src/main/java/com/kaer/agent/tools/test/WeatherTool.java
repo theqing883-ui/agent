@@ -27,6 +27,9 @@ public class WeatherTool implements Tool {
     public String getWeather(@ToolParam(description = "当前城市") String city,
                              @ToolParam(description = "当前日期") String date) {
         // 模拟模拟调用天气 API
+        /*if (true) {
+            throw new RuntimeException("故意的");
+        }*/
         return city + date + "的天气查询结果：晴转多云，温度 25°C，湿度 60%";
     }
 }

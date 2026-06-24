@@ -2,8 +2,10 @@ package com.kaer.context.memory;
 
 import com.kaer.context.token.TokenCounter;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -66,6 +68,12 @@ public class TokenAwareChatMemory implements ChatMemory {
     /**
      * 按 token 预算获取消息子集，从最新消息往前取。
      * 系统消息始终保留（排在前面），其余按 token 预算从新到旧截断。
+     *
+     * <p><b>消息配对保护：</b>
+     * 大模型 API 严格要求 AssistantMessage(tool_calls) 和 ToolResponseMessage 必须成对出现。
+     * 当按 token 预算截断时，如果保留了一个 ToolResponseMessage，必须同时保留其前一个
+     * 带 tool_calls 的 AssistantMessage，防止 API 返回 400 错误：
+     * "Messages with role 'tool' must be a response to a preceding message with 'tool_calls'"
      */
     public List<Message> getByTokenBudget(String conversationId, int tokenBudget) {
         List<Message> all = store.getOrDefault(conversationId, List.of());
@@ -99,6 +107,19 @@ public class TokenAwareChatMemory implements ChatMemory {
                 kept.add(0, msg);
                 running += mt;
             } else {
+                // ── 消息配对保护 ──
+                // 如果 kept 中最旧的消息是 ToolResponseMessage，而当前被排除的消息
+                // 是其前一个带 tool_calls 的 AssistantMessage，则必须将这对消息一起保留。
+                // 否则消息序列会被截断为：
+                //   ToolResponseMessage → UserMessage（无前置 AssistantMessage(tool_calls)）
+                // 导致 API 返回 400。
+                if (!kept.isEmpty()
+                        && kept.get(0) instanceof ToolResponseMessage
+                        && msg instanceof AssistantMessage assistMsg
+                        && assistMsg.hasToolCalls()) {
+                    kept.add(0, msg);
+                    running += mt;
+                }
                 break;
             }
         }

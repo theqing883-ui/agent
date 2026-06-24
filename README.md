@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤖 JChatMind
+# 🤖 ChatMind
 
 **基于 Spring AI 的多智能体协作平台**
 

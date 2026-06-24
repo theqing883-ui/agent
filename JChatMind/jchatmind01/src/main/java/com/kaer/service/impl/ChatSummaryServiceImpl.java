@@ -1,6 +1,6 @@
 package com.kaer.service.impl;
 
-import com.kaer.agent.SystemPrompt;
+import com.kaer.agent.ConstantPrompt;
 import com.kaer.mapper.ChatSummaryMapper;
 import com.kaer.model.entity.ChatMessage;
 import com.kaer.model.entity.ChatSummary;
@@ -110,7 +110,7 @@ public class ChatSummaryServiceImpl implements ChatSummaryService {
         String result;
         try {
             result = chatClient.prompt()
-                    .system(SystemPrompt.SUMMARIZE_SYSTEM_PROMPT)
+                    .system(ConstantPrompt.SUMMARIZE_SYSTEM_PROMPT)
                     .user(userContent)
                     .options(DefaultToolCallingChatOptions.builder()
                             .internalToolExecutionEnabled(false) // 禁用工具调用

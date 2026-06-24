@@ -162,7 +162,7 @@ public class DelegationTool implements com.kaer.agent.tools.Tool {
         // 4. 解析子 Agent 配置
         int childMaxSteps = delegationConfig.getChildMaxSteps();
         List<String> excludedTools = delegationConfig.getExcludedTools();
-        String childSystemPrompt = SystemPrompt.CHILD_SYSTEM_PROMPT;
+        String childSystemPrompt =ConstantPrompt.CHILD_SYSTEM_PROMPT;
 
         try {
             Agent childAgent = agentMapper.selectById(effectiveChildAgentId);

@@ -21,5 +21,7 @@ public class TerminateTool implements Tool {
     }
 
     @org.springframework.ai.tool.annotation.Tool(name = "terminate", description = "如果你觉得当前所有的任务已经执行完毕了，就执行这个工具调用")
-    public void terminate() {}
+    public String terminate() {
+        return "所有任务已完成，Agent 循环终止。";
+    }
 }

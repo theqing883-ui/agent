@@ -10,7 +10,9 @@ spring:
       port: 6379
   ai:
     retry:
-      max-attempts: 5
+      # ★ 由 ResilienceRetryConfig 定制：仅对 IOException 等网络层瞬断进行内置重试。
+      # 业务级/限流级异常（400/429/529）直接放行给 ErrorRecoveryEngine 处理。
+      max-attempts: 2
       backoff:
         initial-interval: 2000
         multiplier: 2
@@ -34,7 +36,7 @@ spring:
             bocha-search:
               command: node
               args:
-                - "./jchatmind01/mcp/bocha-mcp.js"
+                - "./JChatMind/jchatmind01/mcp/bocha-mcp.js"
               env:
                 BOCHA_API_KEY: ${API-KEY-bocha-search}
                 BOCHA_ENDPOINT: "https://api.bochaai.com/v1/web-search"
@@ -65,3 +67,39 @@ mybatis:
 document:
   storage:
     base-path: ./jchatmind01/data/documents
+
+# ========================================================================
+# 韧性引擎配置（Error Recovery Engine）
+# 控制 LLM 调用层的自愈策略：限流退避、备胎切换、截断续写、上下文降级
+# ========================================================================
+resilience:
+  # 备胎模型映射：当当前模型不可用时自动切换
+  fallback:
+    deepseek-chat: glm-4.6
+    glm-4.6: deepseek-chat
+  # 退避策略参数
+  backoff:
+    base-delay-ms: 500        # 基础延迟（毫秒），公式：500ms * (2 ^ attempt)
+    max-delay-ms: 30000       # 最大延迟上限（毫秒）
+    jitter-ratio: 0.25        # 随机 Jitter 比例 [0, 25%]
+    fallback-529-threshold: 3 # 连续 529 错误触发备胎切换的阈值
+  # Max Tokens 截断 / 续写策略
+  continuation:
+    max-retries: 3            # 续写最大重试次数（不含首次无痕升级）
+    upgraded-tokens: 64000    # 无痕升级时的 max_tokens 值（64K）
+  # 上下文超限降级策略
+  context-length:
+    max-retries: 1            # 上下文超限摘要降级最多尝试次数
+    reserved-recent-messages: 3  # 降级后保留的最近关键对话条数
+
+# ========================================================================
+# 工具响应全局缓存配置（Tool Response Global Cache）
+# 控制超大工具响应的 Redis 缓存 + 按需阅读行为
+# ========================================================================
+jchatmind:
+  tool-cache:
+    enabled: true                    # 总开关：是否启用工具响应缓存（关闭后全局退化为硬截断）
+    ttl-seconds: 600                 # Redis 缓存 TTL（秒），默认 10 分钟
+    trigger-tokens: 4000             # 触发缓存的 token 阈值
+    shown-tokens: 2000               # 截断后展示给 LLM 的 token 数
+    read-max-chars: 16000            # ReadCacheTool 单次最大读取字符数

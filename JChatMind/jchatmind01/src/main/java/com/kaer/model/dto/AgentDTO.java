@@ -146,6 +146,10 @@ public class AgentDTO {
         private static final Integer DEFAULT_CHILD_MAX_STEPS = 10;
         /** 默认子 Agent 排除的工具 */
         private static final List<String> DEFAULT_CHILD_EXCLUDED_TOOLS = List.of("delegateTask");
+        /** 默认 Max Output Tokens（null = 使用模型默认值） */
+        private static final Integer DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+        /** 默认单次最大输出 token 上限（用于截断后无痕升级） */
+        private static final Integer DEFAULT_UPGRADED_MAX_TOKENS = 64000;
 
         /**
          * 温度参数，控制输出的随机性
@@ -194,6 +198,20 @@ public class AgentDTO {
         /** 子 Agent 的系统提示词覆盖 */
         private String childSystemPrompt;
 
+        // ===== 韧性引擎配置 =====
+        /** 单次请求最大输出 token 数，被截断后由 ErrorRecoveryEngine 自动升级 */
+        private Integer maxOutputTokens;
+        /** 备胎模型名称（当前模型不可用时自动切换），如 "glm-4.6" */
+        private String fallbackModel;
+
+        // ===== 工具响应全局缓存配置 =====
+        /** 是否启用工具响应全局缓存（关闭时退化为纯硬截断） */
+        private Boolean toolCacheEnabled;
+        /** 触发缓存的 token 阈值（超过此值的工具响应将被缓存），默认 4000 */
+        private Integer toolCacheTriggerTokens;
+        /** 截断后展示给 LLM 的 token 数，默认 2000 */
+        private Integer toolCacheShownTokens;
+
         /**
          * 创建默认的聊天配置选项
          * <p>使用预定义的默认值构建ChatOptions实例，包含推荐的上下文窗口配置</p>
@@ -214,6 +232,11 @@ public class AgentDTO {
                     .childMaxSteps(DEFAULT_CHILD_MAX_STEPS)
                     .childExcludedTools(DEFAULT_CHILD_EXCLUDED_TOOLS)
                     .childSystemPrompt(null) // null = 由 DelegationTool 使用静态默认值
+                    .maxOutputTokens(DEFAULT_MAX_OUTPUT_TOKENS)
+                    .fallbackModel(null)
+                    .toolCacheEnabled(null)       // null = 使用全局配置
+                    .toolCacheTriggerTokens(null)  // null = 使用全局默认 4000
+                    .toolCacheShownTokens(null)    // null = 使用全局默认 2000
                     .build();
         }
         public static ChatOptions defaultOptions() {
@@ -233,6 +256,11 @@ public class AgentDTO {
                     .childMaxSteps(DEFAULT_CHILD_MAX_STEPS)
                     .childExcludedTools(DEFAULT_CHILD_EXCLUDED_TOOLS)
                     .childSystemPrompt(null)
+                    .maxOutputTokens(DEFAULT_MAX_OUTPUT_TOKENS)
+                    .fallbackModel(null)
+                    .toolCacheEnabled(null)       // null = 使用全局配置
+                    .toolCacheTriggerTokens(null)  // null = 使用全局默认 4000
+                    .toolCacheShownTokens(null)    // null = 使用全局默认 2000
                     .build();
         }
     }

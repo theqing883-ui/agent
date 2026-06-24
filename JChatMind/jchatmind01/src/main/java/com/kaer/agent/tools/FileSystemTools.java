@@ -19,7 +19,7 @@ public class FileSystemTools implements Tool {
     // 允许访问的基础目录，防止路径遍历攻击
 //    private static final String BASE_DIRECTORY = System.getProperty("user.dir");
     private static final String BASE_DIRECTORY = Paths.get(System.getProperty("user.dir"),
-                    "jchatmind01", "data", "outputfiles")
+                    "JChatMind","jchatmind01", "data", "outputfiles")
             .toAbsolutePath()
             .normalize()
             .toString();

@@ -1,5 +1,6 @@
 package com.kaer.agent;
 
+import com.kaer.agent.skill.SkillMeta;
 import com.kaer.context.manager.ContextWindowManager;
 import com.kaer.context.memory.TokenAwareChatMemory;
 import com.kaer.context.model.ContextWindow;
@@ -8,10 +9,10 @@ import com.kaer.converter.ChatMessageConverter;
 import com.kaer.message.SseMessage;
 import com.kaer.model.dto.AgentDTO;
 import com.kaer.model.dto.ChatMessageDTO;
-import com.kaer.agent.skill.SkillMeta;
 import com.kaer.model.dto.KnowledgeBaseDTO;
 import com.kaer.model.response.CreateChatMessageResponse;
 import com.kaer.model.vo.ChatMessageVO;
+import com.kaer.resilience.ErrorRecoveryEngine;
 import com.kaer.service.ChatMessageFacadeService;
 import com.kaer.service.SseService;
 import lombok.extern.slf4j.Slf4j;
@@ -78,6 +79,10 @@ public class JChatMind {
     private ContextWindowManager contextWindowManager;
     // 工具响应截断器
     private ContextTruncator contextTruncator;
+    // 韧性错误恢复引擎
+    private ErrorRecoveryEngine errorRecoveryEngine;
+    // 当前模型名称（用于备胎切换查找）
+    private String modelName;
 
     public JChatMind() {
     }
@@ -92,7 +97,9 @@ public class JChatMind {
                      ChatMessageFacadeService chatMessageFacadeService,
                      ChatMessageConverter chatMessageConverter,
                      ContextWindowManager contextWindowManager,
-                     ContextTruncator contextTruncator
+                     ContextTruncator contextTruncator,
+                     ErrorRecoveryEngine errorRecoveryEngine,
+                     String modelName
     ) {
         this.agentId = agentId;
         this.name = name;
@@ -110,6 +117,8 @@ public class JChatMind {
         this.chatMessageConverter = chatMessageConverter;
         this.contextWindowManager = contextWindowManager;
         this.contextTruncator = contextTruncator;
+        this.errorRecoveryEngine = errorRecoveryEngine;
+        this.modelName = modelName;
         this.agentState = AgentState.IDLE;
         this.toolCallingManager = ToolCallingManager.builder().build();
     }
@@ -165,7 +174,7 @@ public class JChatMind {
     private void step() {
         // 检查是否需要生成记忆笔记
         int noteInterval = agentChatOptions.getMemoryNoteIntervalTurns() != null
-                ? agentChatOptions.getMemoryNoteIntervalTurns() : 1;
+                ? agentChatOptions.getMemoryNoteIntervalTurns() : 8;
         Boolean noteEnabled = agentChatOptions.getMemoryNoteEnabled();
         if (noteEnabled != null && noteEnabled
                 && contextWindowManager.shouldGenerateNote(chatSessionId, noteInterval)) {
@@ -201,15 +210,23 @@ public class JChatMind {
     private boolean think() {
         // 构建思考阶段的系统提示词，告知 AI 当前可用的知识库资源和技能列表
         String skillsDescription = formatSkillList(this.availableSkills);
-        String thinkPrompt = SystemPrompt.THINK_SYSTEM_PROMPT.formatted(this.availableKbs, skillsDescription);
+        String thinkPrompt = ConstantPrompt.THINK_SYSTEM_PROMPT.formatted(this.availableKbs, skillsDescription);
+
 
         // 构建上下文窗口，整合会话历史、工具列表和提示词
         ContextWindow ctxWindow = contextWindowManager.buildContextWindow(
                 chatSessionId, chatMemory, availableTools, thinkPrompt, agentChatOptions);
 
+        // LLM单次响应的最大Token
+        Integer initialMaxTokens = (this.agentChatOptions != null && this.agentChatOptions.getMaxOutputTokens() != null)
+                ? this.agentChatOptions.getMaxOutputTokens()
+                : 8000;
+
         // 配置聊天选项：禁用内部工具执行，由 Agent 手动处理
         ChatOptions chatOpts = DefaultToolCallingChatOptions.builder()
-                .internalToolExecutionEnabled(false).build();
+                .internalToolExecutionEnabled(false)
+                .maxTokens(initialMaxTokens)
+                .build();
 
         // 构建完整的 Prompt 对象
         Prompt prompt = Prompt.builder()
@@ -217,13 +234,17 @@ public class JChatMind {
                 .messages(ctxWindow.selectedMessages())
                 .build();
 
-        // 调用 AI 模型获取响应，注册工具回调函数
-        this.lastChatResponse = this.chatClient.prompt(prompt)
-                .system(thinkPrompt)
-                .toolCallbacks(this.availableTools)
-                .call()
-                .chatClientResponse()
-                .chatResponse();
+        // 调用 AI 模型获取响应（经韧性引擎包装：自动处理 429/529 重试、0
+        // max_tokens 截断续写、context length 摘要降级）
+        this.lastChatResponse = this.errorRecoveryEngine.executeWithRecovery(
+                this.chatClient,
+                prompt,
+                thinkPrompt,
+                this.availableTools,
+                chatMemory,
+                chatSessionId,
+                this.modelName
+        );
 
         // 确保响应不为空
         Assert.notNull(this.lastChatResponse, "AI 聊天响应为空");
@@ -338,7 +359,7 @@ public class JChatMind {
                 // 将流中每一条格式化好的字符串，使用“换行符(\n)”作为分隔符，拼接成一整个大字符串。
                 .collect(Collectors.joining("\n"));
 
-        // 5. 【日志输出】：
+        // 5. 日志输出
         log.info("\n\n[ToolCalling] 工具调用结果：{}", collect);
     }
 
@@ -382,13 +403,13 @@ public class JChatMind {
     // SystemMessage 不需要持久化
     // UserMessage 在每次用户发送问题之间就已经持久化过了
     private void saveMessage(Message message) {
-        int maxToolResp = agentChatOptions.getMaxToolResponseTokens() != null
+        /*int maxToolResp = agentChatOptions.getMaxToolResponseTokens() != null
                 ? agentChatOptions.getMaxToolResponseTokens() : 4000;
-        Message processed = contextTruncator.truncateSingleToolResponse(message, maxToolResp);
+        Message processed = contextTruncator.truncateSingleToolResponse(message, maxToolResp);*/
 
         ChatMessageDTO.ChatMessageDTOBuilder builder = ChatMessageDTO.builder();
 
-        if (processed instanceof AssistantMessage assistantMessage) {
+        if (message instanceof AssistantMessage assistantMessage) {
             ChatMessageDTO chatMessageDTO = builder.role(ChatMessageDTO.RoleType.ASSISTANT)
                     .content(assistantMessage.getText())
                     .sessionId(this.chatSessionId)
@@ -399,7 +420,7 @@ public class JChatMind {
             CreateChatMessageResponse chatMessage = chatMessageFacadeService.createChatMessage(chatMessageDTO);
             chatMessageDTO.setId(chatMessage.getChatMessageId());
             pendingChatMessages.add(chatMessageDTO);
-        } else if (processed instanceof ToolResponseMessage toolResponseMessage) {
+        } else if (message instanceof ToolResponseMessage toolResponseMessage) {
             List<ToolResponseMessage.ToolResponse> toolResponses = toolResponseMessage.getResponses();
             for (ToolResponseMessage.ToolResponse toolResponse : toolResponses) {
                 ChatMessageDTO chatMessageDTO = builder.role(ChatMessageDTO.RoleType.TOOL)
