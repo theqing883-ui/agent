@@ -1,6 +1,7 @@
 com\kaer\agent\tools\DirectAnswerTool.class
 com\kaer\model\response\GetChatSessionResponse.class
 com\kaer\agent\tools\test\DateTool.class
+com\kaer\exception\TaskAlreadyClaimedException.class
 com\kaer\agent\skill\SkillMeta.class
 com\kaer\agent\tools\McpToolManager.class
 com\kaer\model\entity\ChatMemoryNote.class
@@ -18,9 +19,11 @@ com\kaer\model\entity\KnowledgeBase$KnowledgeBaseBuilder.class
 com\kaer\model\common\ApiResponse$ApiCode.class
 com\kaer\model\dto\ChatSessionDTO.class
 com\kaer\model\response\CreateChatSessionResponse$CreateChatSessionResponseBuilder.class
+com\kaer\exception\TaskDependencyNotMetException.class
 com\kaer\model\vo\ChatSessionVO$ChatSessionVOBuilder.class
 com\kaer\model\response\GetChatSessionsResponse.class
 com\kaer\service\impl\RagServiceImpl.class
+com\kaer\model\entity\Task.class
 com\kaer\service\SseService.class
 com\kaer\model\response\CreateAgentResponse$CreateAgentResponseBuilder.class
 com\kaer\agent\tools\SkillTool.class
@@ -35,11 +38,14 @@ com\kaer\model\dto\ChunkBgeM3DTO.class
 com\kaer\service\EmailService.class
 com\kaer\Jchatmind01Application.class
 com\kaer\model\dto\KnowledgeBaseDTO.class
+com\kaer\exception\TaskNotFoundException.class
 com\kaer\agent\AgentState.class
 com\kaer\service\impl\ChatSessionFacadeServiceImpl.class
+com\kaer\model\entity\Task$TaskBuilder.class
 com\kaer\message\SseMessage$SseMessageBuilder.class
 com\kaer\agent\tools\FileSystemTools.class
 com\kaer\service\ChatSessionFacadeService.class
+com\kaer\agent\tools\CompleteTaskTool.class
 com\kaer\model\entity\ChatSession$ChatSessionBuilder.class
 com\kaer\service\impl\ChatMessageFacadeServiceImpl.class
 com\kaer\mapper\ChatSummaryMapper.class
@@ -50,6 +56,7 @@ com\kaer\context\memory\TokenAwareChatMemory.class
 com\kaer\resilience\ErrorRecoveryEngine.class
 com\kaer\model\vo\ChatSessionVO.class
 com\kaer\service\MemoryNoteStoreService.class
+com\kaer\agent\tools\ListTaskTool.class
 com\kaer\model\common\ApiResponse.class
 com\kaer\model\response\GetChatSessionResponse$GetChatSessionResponseBuilder.class
 com\kaer\model\request\CreateChatMessageRequest.class
@@ -89,6 +96,7 @@ com\kaer\context\model\BudgetAllocation.class
 com\kaer\message\SseMessage$Metadata$MetadataBuilder.class
 com\kaer\model\dto\ChatSessionDTO$ChatSessionDTOBuilder.class
 com\kaer\model\vo\KnowledgeBaseVO$KnowledgeBaseVOBuilder.class
+com\kaer\agent\tools\GetTaskTool.class
 com\kaer\agent\tools\test\WeatherTool.class
 com\kaer\agent\JChatMindFactory$1.class
 com\kaer\model\entity\ChatMemoryNote$ChatMemoryNoteBuilder.class
@@ -107,7 +115,9 @@ com\kaer\model\response\CreateChatMessageResponse$CreateChatMessageResponseBuild
 com\kaer\model\request\CreateDocumentRequest.class
 com\kaer\converter\KnowledgeBaseConverter.class
 com\kaer\model\dto\KnowledgeBaseDTO$KnowledgeBaseDTOBuilder.class
+com\kaer\agent\tools\CreateTaskTool.class
 com\kaer\service\impl\MemoryNoteStoreServiceImpl.class
+com\kaer\service\impl\TaskServiceImpl.class
 com\kaer\service\impl\SseServiceImpl.class
 com\kaer\model\request\CreateChatMessageRequest$CreateChatMessageRequestBuilder.class
 com\kaer\mapper\DocumentMapper.class
@@ -126,18 +136,20 @@ com\kaer\config\AsyncConfig.class
 com\kaer\controller\AgentController.class
 com\kaer\model\response\CreateKnowledgeBaseResponse$CreateKnowledgeBaseResponseBuilder.class
 com\kaer\model\vo\AgentVO$AgentVOBuilder.class
-com\kaer\agent\SystemPrompt.class
 com\kaer\model\request\CreateKnowledgeBaseRequest.class
 com\kaer\message\SseMessage$Payload.class
+com\kaer\model\vo\TaskSummary$TaskSummaryBuilder.class
 com\kaer\agent\DelegationConfig.class
 com\kaer\exception\MaxRecoveryExceededException.class
 com\kaer\model\dto\ChatMessageDTO$RoleType.class
+com\kaer\service\TaskService.class
 com\kaer\model\entity\Agent.class
 com\kaer\agent\AgentRoleConstants.class
 com\kaer\model\response\CreateKnowledgeBaseResponse.class
 com\kaer\service\ToolFacadeService.class
 com\kaer\agent\tools\ReadCacheTool.class
 com\kaer\model\vo\AgentVO.class
+com\kaer\model\vo\TaskSummary.class
 com\kaer\service\impl\RedisVectorService.class
 com\kaer\model\entity\ChunkBgeM3$ChunkBgeM3Builder.class
 com\kaer\service\MarkdownParserService$MarkdownSection.class
@@ -158,6 +170,7 @@ com\kaer\service\impl\MarkdownParserServiceImpl.class
 com\kaer\controller\ChatSessionController.class
 com\kaer\resilience\ResilienceConfig$Backoff.class
 com\kaer\model\request\UpdateKnowledgeBaseRequest.class
+com\kaer\agent\tools\ClaimTaskTool.class
 com\kaer\event\listener\ChatEventListener.class
 com\kaer\model\vo\DocumentVO.class
 com\kaer\mapper\AgentMapper.class
@@ -197,5 +210,6 @@ com\kaer\model\entity\ChatSummary$ChatSummaryBuilder.class
 com\kaer\config\CorsConfig.class
 com\kaer\model\response\CreateChatSessionResponse.class
 com\kaer\config\MultiChatClientConfig.class
+com\kaer\model\enums\TaskStatus.class
 com\kaer\typehandler\JsonArrayToStrListTypeHandler.class
 com\kaer\model\dto\ChunkBgeM3DTO$MetaData.class

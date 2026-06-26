@@ -36,7 +36,7 @@ spring:
             bocha-search:
               command: node
               args:
-                - "./JChatMind/jchatmind01/mcp/bocha-mcp.js"
+                - "./jchatmind01/mcp/bocha-mcp.js"
               env:
                 BOCHA_API_KEY: ${API-KEY-bocha-search}
                 BOCHA_ENDPOINT: "https://api.bochaai.com/v1/web-search"

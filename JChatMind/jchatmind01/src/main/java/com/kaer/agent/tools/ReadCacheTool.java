@@ -80,7 +80,7 @@ public class ReadCacheTool implements Tool {
      * @return 分页后的缓存内容，附带位置标记和分页引导
      */
     @org.springframework.ai.tool.annotation.Tool(
-            name = "read_cache",
+            name = "readCache",
             description = """
                     读取之前被截断的工具响应的完整缓存内容。
                     当工具返回结果被截断且你需要更多信息来准确回答用户问题时使用。

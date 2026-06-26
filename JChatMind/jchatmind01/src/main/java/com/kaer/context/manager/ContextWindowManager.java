@@ -104,9 +104,9 @@ public class ContextWindowManager {
 
         // 3. 截断工具响应：限制单个工具响应的最大 token 数，默认 4000
         //    v2.0: 传入 sessionId 启用 Redis 缓存 + CacheId 截断后缀
-        int maxToolResp = config.getMaxToolResponseTokens() != null
+       /* int maxToolResp = config.getMaxToolResponseTokens() != null
                 ? config.getMaxToolResponseTokens() : 4000;
-        selected = contextTruncator.truncateToolResponses(selected, maxToolResp, sessionId);
+        selected = contextTruncator.truncateToolResponses(selected, maxToolResp, sessionId);*/
 
         // 4. 获取记忆笔记：从持久化存储中读取该会话的所有记忆笔记
         List<String> memoryNotes = memoryNoteStoreServiceImpl.getNotes(sessionId);

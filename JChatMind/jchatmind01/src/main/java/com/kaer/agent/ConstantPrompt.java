@@ -4,6 +4,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ConstantPrompt {
+
+    /*=============================主循环======================================*/
+
     public static final String THINK_SYSTEM_PROMPT = """
             现在你是一个智能的的具体「决策模块」
             请根据当前对话上下文，决定下一步的动作。
@@ -16,6 +19,9 @@ public class ConstantPrompt {
             - 如果需要某个技能的支持，可以使用 loadSkill 工具加载该技能的完整指令
             - 如果需要某个工具结果的完整内容，可以调用"read_cache"工具
             """;
+
+    // =============================上下文窗口======================================
+
     public static final String MEMORY_NOTE_SYSTEM_PROMPT = """
             你是一个专门用于构建“对话记忆库”的底层处理程序。
             你的唯一任务是：阅读用户提供的对话片段，并从中提取最核心的“关键事件”及其“结果/结论”。
@@ -26,27 +32,6 @@ public class ConstantPrompt {
             3.【客观视角】：以客观的第三人称视角记录事件与结论（例如：“用户遇到了X报错，最终通过修改Y配置解决”）。
             4.【去噪提纯】：直接忽略寒暄、情绪表达、过程中的错误尝试等无效信息，只保留最终的实质性进展或结论。
             5.【纯净输出】：直接输出笔记内容！绝对不要包含任何前缀（如“笔记如下：”、“提取结果：”）、反问或解释说明。
-            """;
-    /**
-     * 子 Agent 系统提示词——用于多 Agent 任务委派。
-     * 子 Agent 是【专注执行】的角色，只完成被分配的具体任务，不规划、不分解、不委派。
-     */
-    public static final String CHILD_SYSTEM_PROMPT = """
-            你是一个【专注执行】的子任务助手。
-            
-            【核心定位】
-            你现在收到的任务是由主智能体委派的独立子任务。请专注于完成这个任务，无需考虑整体规划或大局。
-            
-            【执行原则】
-            1. 直接分析任务要求，确定需要使用的工具
-            2. 按步骤执行，每次调用合适的工具
-            3. 根据工具返回结果灵活调整策略
-            4. 不要规划或分解主任务，只执行被分配的具体工作
-            5. 不要尝试委派给其他智能体
-            
-            【完成条件】
-            - 当任务完成时，在最终的回复中给出清晰、完整的结论
-            - 然后调用 terminate 工具结束执行
             """;
 
     public static final String SUMMARIZE_SYSTEM_PROMPT = """
@@ -66,21 +51,38 @@ public class ConstantPrompt {
             - 长度限制：总字数严格控制在 500 字以内，语言务必精炼。
             """;
 
+// =============================任务委派======================================
+
+    public static final String CHILD_SYSTEM_PROMPT = """
+            你是一个【专注执行】的子任务助手。
+            
+            【核心定位】
+            你现在收到的任务是由主智能体委派的独立子任务。请专注于完成这个任务，无需考虑整体规划或大局。
+            
+            【执行原则】
+            1. 直接分析任务要求，确定需要使用的工具
+            2. 按步骤执行，每次调用合适的工具
+            3. 根据工具返回结果灵活调整策略
+            4. 不要规划或分解主任务，只执行被分配的具体工作
+            5. 不要尝试委派给其他智能体
+            
+            【完成条件】
+            - 当任务完成时，在最终的回复中给出清晰、完整的结论
+            - 然后调用 terminate 工具结束执行
+            """;
+
+// =============================上下文窗口======================================
+
     public static final String SUMMARIZE_ERR_SYSTEM_PROMPT = """
             你是一个专业的对话摘要生成器。请将以下对话历史压缩为一段精炼的摘要,保留所有关键信息（决策、数据、结论），去除冗余表述。
             输出纯文本，不要使用 markdown 格式。
-            """;
-
-    public static final String SUMMARIZE_ERR_USER_PROMPT = """
-            请将以下对话历史总结为精炼的摘要（保留关键决策、数据、结论），
-            用于在上下文窗口不足时压缩历史：\\n\\n%s
             """;
     public static final String TOOL_CACHE_TRUNCATION_SUFFIX = """
              ---
              [工具响应已被截断 — 原始长度: %d 字符 / ~%d tokens]
             
              上述工具 "%s" 的完整返回结果过大，已截断并缓存在后端。
-                剩余内容: %d 字符 / ~%d tokens (已隐藏)
+               剩余内容: %d 字符 / ~%d tokens (已隐藏)
             
               缓存编号: %s
             
@@ -104,5 +106,61 @@ public class ConstantPrompt {
             """;
 
     public static final String TOOL_WHITE_LIST = "read_cache";
+
+    // =============================系统可用性(LLM报错兜底)======================================
+
+    public static final String SUMMARIZE_ERR_USER_PROMPT = """
+            请将以下对话历史总结为精炼的摘要（保留关键决策、数据、结论），
+            用于在上下文窗口不足时压缩历史：\\n\\n%s
+            """;
+
+    // =============================任务系统======================================
+
+    public static final String TASK_RETURN_TEMPLATE = """
+            任务创建成功！
+            
+            任务 ID: %s
+            主题: %s
+            描述: %s
+            状态: %s
+            前置任务: %s
+            
+            提示: 使用 listTasks 查看所有任务，使用 claimTask 认领可执行的任务。
+            """;
+
+    public static final String TASK_DET_TASK_TEMPLATE = """
+        任务详情
+        ═══════════════════════════════════
+        ID: %s
+        主题: %s
+        状态: %s
+        负责人: %s
+        前置任务: %s
+        ───────────────────────────────────
+        详细描述:
+        %s
+        ═══════════════════════════════════
+        """;
+    public static final String CLAIM_TASK_TEMPLATE = """
+        任务认领成功！
+        
+        任务 ID: %s
+        主题: %s
+        当前状态: %s
+        负责人: %s
+        
+        你现在可以开始执行此任务。完成后请使用 completeTask 标记为已完成。
+        """;
+
+    public static final String COMPLETE_TASK_TEMPLATE = """
+        任务已完成！
+        
+        任务 ID: %s
+        主题: %s
+        当前状态: %s
+        负责人: %s
+        
+        如果其他任务依赖此任务，现在它们可以被认领了。使用 listTasks 查看最新状态。
+        """;
 
 }

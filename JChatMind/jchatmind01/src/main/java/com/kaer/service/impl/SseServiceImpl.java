@@ -1,10 +1,11 @@
 package com.kaer.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kaer.mapper.ChatSessionMapper;
 import com.kaer.message.SseMessage;
 import com.kaer.service.SseService;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 @Service
 @AllArgsConstructor
+@Slf4j
 public class SseServiceImpl implements SseService {
 
     /**
@@ -92,7 +94,14 @@ public class SseServiceImpl implements SseService {
                         .name("message")
                         .data(sseMessageStr)
                 );
+            } catch (ClientAbortException e) {
+                log.info("客户端已主动断开连接, chatSessionId: {}", chatSessionId);
+                emitter.complete();
+                clients.remove(chatSessionId);
             } catch (IOException e) {
+                log.info("网络连接已中断, chatSessionId: {}", chatSessionId);
+                emitter.complete();
+                clients.remove(chatSessionId);
                 throw new RuntimeException(e);
             }
         } else {

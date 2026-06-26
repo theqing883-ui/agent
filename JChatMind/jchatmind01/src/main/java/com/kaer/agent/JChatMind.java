@@ -39,7 +39,7 @@ public class JChatMind {
     // AI 返回的，已经持久化，但是需要 sse 发给前端的消息
     private final List<ChatMessageDTO> pendingChatMessages = new ArrayList<>();
     // 默认最多循环次数（可由 setter 覆盖）
-    private int maxSteps = 20;
+    private int maxSteps = 50;
     // 智能体 ID
     private String agentId;
     // 名称
