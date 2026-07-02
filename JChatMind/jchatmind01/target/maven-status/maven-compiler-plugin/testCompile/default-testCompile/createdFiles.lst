@@ -1,2 +1,6 @@
+com\kaer\context\compact\L1SlidingWindowTrimTest.class
+com\kaer\agent\TeammateCollaborationTest.class
+com\kaer\context\compact\CompactorPipelineTest.class
+com\kaer\context\compact\L4FullSummaryFallbackTest.class
 com\kaer\Jchatmind01ApplicationTests.class
 com\kaer\service\TaskServiceTest.class

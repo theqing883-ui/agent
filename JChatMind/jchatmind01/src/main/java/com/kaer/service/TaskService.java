@@ -1,6 +1,5 @@
 package com.kaer.service;
 
-import com.kaer.exception.BizException;
 import com.kaer.exception.TaskAlreadyClaimedException;
 import com.kaer.exception.TaskDependencyNotMetException;
 import com.kaer.exception.TaskNotFoundException;
@@ -89,7 +88,12 @@ public interface TaskService {
      * @param agentName 完成任务的 Agent 名称（必须与认领者一致）
      * @return 更新后的 Task 对象（状态为 COMPLETED）
      * @throws TaskNotFoundException 任务不存在
-     * //@throws BizException          状态不正确或 owner 不匹配时抛出
+     *                               //@throws BizException          状态不正确或 owner 不匹配时抛出
      */
     Task completeTask(String taskId, String agentName) throws TaskNotFoundException;
+
+    /**
+     * 判断任务id是否存在
+     */
+    boolean exists(String taskId);
 }

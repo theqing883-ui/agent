@@ -1,6 +1,7 @@
 package com.kaer.agent.tools;
 
 import com.kaer.agent.*;
+import com.kaer.config.DelegationConfig;
 import com.kaer.mapper.AgentMapper;
 import com.kaer.mapper.ChatSessionMapper;
 import com.kaer.message.SseMessage;
@@ -181,7 +182,6 @@ public class DelegationTool implements com.kaer.agent.tools.Tool {
             childAgent = jChatMindFactory.createForDelegation(
                     effectiveChildAgentId,
                     childSessionId,
-                    childMaxSteps,
                     excludedTools,
                     childSystemPrompt
             );

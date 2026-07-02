@@ -71,7 +71,94 @@ public class ConstantPrompt {
             - 然后调用 terminate 工具结束执行
             """;
 
-// =============================上下文窗口======================================
+    // =============================多 Agent 协作 (Teammate)======================================
+
+    public static final String TEAMMATE_SYSTEM_PROMPT = """
+            你是一个后台工作 Agent（队友），负责为 Lead Agent（主控）执行任务。
+            你的 JChatMind "思考-执行" (think-execute) 循环是你主要的工作循环。
+            
+            【工作循环】
+            
+            1. 检查你的收件箱，获取来自 Lead 的直接指令。
+            2. 调用 `listTask` 工具，发现你可以处理的 PENDING（待处理）任务。
+            3. 如果存在匹配的任务，依次执行：`getTask`（获取详情） → `claimTask`（认领） → 执行工作 → `completeTask`（完成） → `sendMessage` (类型设为 STATUS_UPDATE) 向 Lead 汇报。
+            4. 完成一个任务后，循环回到第 1 步，检查是否有更多工作。
+            5. 只有在真正没有可用工作时（没有 PENDING 任务，且收件箱没有消息），才调用 `terminate` 终止自身。
+            
+            【任务执行】
+            
+            * 当你认领一个任务时，请将其主题 (subject) 和描述 (description) 视为你的核心目标。
+            * 充分利用所有可用的工具来彻底完成该任务。
+            * 简明扼要地向Lead汇报结果：说明你做了什么 + 关键发现。
+            
+            【通信协议 (Req-ACK)】
+            
+            * 当你收到来自 Lead 的 REQUEST（请求）消息并附带 `requestId` 时，请处理该请求，并调用 `replyToLead(content, requestId)` 进行回复。
+            * 该 `requestId` 会将你的回复与原始请求绑定——Lead 会自动完成匹配。
+            * 仅在主动汇报进度（如：任务完成、达成里程碑）时，使用带有 `type=STATUS_UPDATE` 的 `sendMessage` 工具。**绝对不要**用它来回复 Lead 的 REQUEST 消息。
+            * 如有需要，可以使用 `listTeammates` 查看其他活跃的队友。
+            * 任务系统工具（`listTask`, `getTask`, `claimTask`, `completeTask`）专门用于处理任务池中的工作，不要将其用于临时的特殊操作。
+            
+            【生命周期控制】
+            
+            * 如果你收到 Lead 的 REQUEST 要求关机（如 "shutdown", "stop"），请先完成手头工作，然后：
+              1. 调用 `shutdown()` 标记本轮后不再重启
+              2. 调用 `replyToLead(content, requestId)` 向 Lead 确认
+              3. 调用 `terminate` 退出
+            * 如果你自行判断没有更多工作需要执行（任务池为空且无新消息），直接调用 `terminate` 即可，TeammateWorker 会在 2 秒后自动重启你。
+            
+            【约束条件】
+            
+            * **严禁**使用 `spawnTeammate` 或 `delegateTask` 工具。
+            * 一次只专注处理**一个**任务，彻底完成后再进行下一个。
+            """;
+
+    public static final String TEAMMATE_SPAWN_TEAMMATE_PROMPT = """
+            队友 '%s' 已成功启动！
+            
+            - Agent ID: %s
+            - 会话 ID: %s
+         
+           
+            你可以通过以下方式与该队友协作：
+            1. 使用 sendMessage 直接发送指令
+            2. 使用 createTask 在任务系统中发布任务
+            3. 队友完成任务的汇报将出现在你的收件箱中
+            """;
+    
+    
+
+    // =============================上下文压缩 (ContextCompactor)======================================
+
+    /**
+     * L4 全量摘要的 System Prompt —— 5 要素提取
+     */
+    public static final String COMPACT_SUMMARY_SYSTEM_PROMPT = """
+            你是一个上下文压缩引擎。请分析以下对话历史，提取并输出结构化摘要。
+            
+            【输出格式】严格按以下字段输出，每行一个：
+            1. 当前目标：[用户当前核心目标的1句话描述]
+            2. 关键决定：[列出对话中做出的重要决策，用逗号分隔]
+            3. 变更文件：[列出修改/创建的文件路径，若无则填"无"]
+            4. 待办事项：[列出未完成的待办工作，用逗号分隔]
+            5. 用户约束：[用户提出的约束条件，若无则填"无"]
+            
+            【约束】
+            - 总字数严格控制在800字以内
+            - 使用第三人称客观描述
+            - 只提取实质性内容，忽略寒暄和重复
+            """;
+
+    /**
+     * L2 历史工具结果占位后缀：旧结果已被 Redis 缓存归档
+     */
+    public static final String TOOL_RESULT_COMPACTED_SUFFIX = """
+            「此历史工具结果已被压缩。
+            获取完整结果方式：调用 [read_cache] 工具 传入 ID [%s]。
+            如需查看预览，以下是该工具的名称: %s」
+            """;
+
+    // =============================系统可用性======================================
 
     public static final String SUMMARIZE_ERR_SYSTEM_PROMPT = """
             你是一个专业的对话摘要生成器。请将以下对话历史压缩为一段精炼的摘要,保留所有关键信息（决策、数据、结论），去除冗余表述。
@@ -129,38 +216,42 @@ public class ConstantPrompt {
             """;
 
     public static final String TASK_DET_TASK_TEMPLATE = """
-        任务详情
-        ═══════════════════════════════════
-        ID: %s
-        主题: %s
-        状态: %s
-        负责人: %s
-        前置任务: %s
-        ───────────────────────────────────
-        详细描述:
-        %s
-        ═══════════════════════════════════
-        """;
+            任务详情
+            ═══════════════════════════════════
+            ID: %s
+            主题: %s
+            状态: %s
+            负责人: %s
+            前置任务: %s
+            ───────────────────────────────────
+            详细描述:
+            %s
+            ═══════════════════════════════════
+            """;
     public static final String CLAIM_TASK_TEMPLATE = """
-        任务认领成功！
-        
-        任务 ID: %s
-        主题: %s
-        当前状态: %s
-        负责人: %s
-        
-        你现在可以开始执行此任务。完成后请使用 completeTask 标记为已完成。
-        """;
+            任务认领成功！
+            
+            任务 ID: %s
+            主题: %s
+            当前状态: %s
+            负责人: %s
+            
+            你现在可以开始执行此任务。完成后请使用 completeTask 标记为已完成。
+            """;
 
     public static final String COMPLETE_TASK_TEMPLATE = """
-        任务已完成！
-        
-        任务 ID: %s
-        主题: %s
-        当前状态: %s
-        负责人: %s
-        
-        如果其他任务依赖此任务，现在它们可以被认领了。使用 listTasks 查看最新状态。
-        """;
+            任务已完成！
+            
+            任务 ID: %s
+            主题: %s
+            当前状态: %s
+            负责人: %s
+            
+            如果其他任务依赖此任务，现在它们可以被认领了。使用 listTasks 查看最新状态。
+            """;
+    // ============================= redis key 与 锁 ======================================
+    public static final String LOCK_PREFIX = "jchatmind:session-lock:";
+    public static final String KEY_PREFIX = "jchatmind:toolcache";
+
 
 }

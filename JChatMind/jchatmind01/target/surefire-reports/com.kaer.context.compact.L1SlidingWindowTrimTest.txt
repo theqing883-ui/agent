@@ -1,0 +1,29 @@
+-------------------------------------------------------------------------------
+Test set: com.kaer.context.compact.L1SlidingWindowTrimTest
+-------------------------------------------------------------------------------
+Tests run: 12, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 0.014 s <<< FAILURE! -- in com.kaer.context.compact.L1SlidingWindowTrimTest
+com.kaer.context.compact.L1SlidingWindowTrimTest.pairProtectionTailBackward -- Time elapsed: 0.003 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: head有3条(pair占2)+tail有1条=4条，pair整体保留 ==> expected: <4> but was: <2>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:563)
+	at com.kaer.context.compact.L1SlidingWindowTrimTest.pairProtectionTailBackward(L1SlidingWindowTrimTest.java:148)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.kaer.context.compact.L1SlidingWindowTrimTest.removeOrphanCallerFromHead -- Time elapsed: 0.001 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: <5> but was: <3>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:145)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:531)
+	at com.kaer.context.compact.L1SlidingWindowTrimTest.removeOrphanCallerFromHead(L1SlidingWindowTrimTest.java:219)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+

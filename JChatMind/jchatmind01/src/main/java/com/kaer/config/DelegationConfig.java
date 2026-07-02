@@ -1,4 +1,4 @@
-package com.kaer.agent;
+package com.kaer.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -19,8 +19,8 @@ public class DelegationConfig {
     /** 子 Agent 最大 think-execute 循环步数，默认 10 */
     private int childMaxSteps = 10;
 
-    /** 子 Agent 中排除的工具名称列表，默认排除 "delegateTask" 防止无限递归 */
-    private List<String> excludedTools = List.of("delegateTask");
+    /** 子 Agent 中排除的工具名称列表，默认排除 "delegateTask,spawnTeammate" 防止无限递归 */
+    private List<String> excludedTools = List.of("delegateTask","spawnTeammate","stopTeammate","createTask");
 
     /** 子 Agent 结果最大字符数，超过则截断，默认 4000 */
     private int maxResultLength = 4000;

@@ -41,8 +41,9 @@ public class RagServiceImpl implements RagService {
      * @param builder          WebClient 构建器
      * @param chunkBgeM3Mapper 向量数据访问对象
      */
-    public RagServiceImpl(WebClient.Builder builder,
-                          ChunkBgeM3Mapper chunkBgeM3Mapper
+    public RagServiceImpl(
+            WebClient.Builder builder,
+            ChunkBgeM3Mapper chunkBgeM3Mapper
     ) {
         // 配置 WebClient，连接 Ollama 服务
         this.webClient = builder

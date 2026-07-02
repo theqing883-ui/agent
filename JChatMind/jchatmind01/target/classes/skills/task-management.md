@@ -7,7 +7,8 @@ description: 多 Agent 任务拆解与调度系统使用指南。当需要将复
 
 ## 概述
 
-本系统提供了一套完整的任务生命周期管理工具，允许你将复杂项目拆解为有序的小任务，并通过依赖关系（`blockedBy`）控制执行顺序。多个 Agent 可以协作：各自认领（claim）并完成（complete）分配给自己的任务，系统自动保证依赖顺序不被违反。
+本系统提供了一套完整的任务生命周期管理工具，允许你将复杂项目拆解为有序的小任务，并通过依赖关系（`blockedBy`）控制执行顺序。多个
+Agent 可以协作：各自认领（claim）并完成（complete）分配给自己的任务，系统自动保证依赖顺序不被违反。
 
 ## 核心概念
 
@@ -21,11 +22,11 @@ createTask()  →  [PENDING]  →  claimTask()  →  [IN_PROGRESS]  →  complet
 
 ### 三种状态
 
-| 状态 | 含义 | 可执行操作 |
-|------|------|-----------|
-| `pending` | 待处理，等待被认领 | `claimTask`（前提：所有前置任务已完成） |
-| `in_progress` | 已被某 Agent 认领，正在执行中 | `completeTask`（只能由认领者完成） |
-| `completed` | 已完成 | 无（会自动解除对依赖此任务的其他任务的阻塞） |
+| 状态            | 含义                 | 可执行操作                     |
+|---------------|--------------------|---------------------------|
+| `pending`     | 待处理，等待被认领          | `claimTask`（前提：所有前置任务已完成） |
+| `in_progress` | 已被某 Agent 认领，正在执行中 | `completeTask`（只能由认领者完成）  |
+| `completed`   | 已完成                | 无（会自动解除对依赖此任务的其他任务的阻塞）    |
 
 ### 依赖关系 (blockedBy)
 
@@ -42,6 +43,7 @@ createTask(subject, description, blockedBy)
 ```
 
 **参数**：
+
 - `subject` (必填): 任务简短标题，如 "设计数据库表结构"
 - `description` (必填): 任务详细描述，包含具体要求和验收标准
 - `blockedBy` (可选): 前置任务 ID 列表，如 `["TASK-xxx", "TASK-yyy"]`
@@ -57,6 +59,7 @@ listTasks()
 **返回**：所有任务的概览，按状态分组（待处理 / 进行中 / 已完成），**不包含详细描述**以节省 Token。
 
 **使用场景**：
+
 - 查看当前整体进度
 - 发现可以认领的 `pending` 任务
 - 检查哪些任务阻塞了后续任务
@@ -78,6 +81,7 @@ claimTask(taskId, agentName)
 ```
 
 **约束**：
+
 1. 任务必须存在
 2. 所有前置任务必须已完成
 3. 任务状态必须为 `pending`（不能被其他 Agent 重复认领）
@@ -91,6 +95,7 @@ completeTask(taskId, agentName)
 ```
 
 **约束**：
+
 1. 任务必须存在
 2. 只能完成你自己认领的任务（`agentName` 必须与认领时一致）
 3. 任务状态必须为 `in_progress`
@@ -107,9 +112,9 @@ completeTask(taskId, agentName)
 2. **创建任务** → 为每个步骤调用 `createTask`，指定正确的依赖关系
 3. **列出任务** → 调用 `listTasks` 确认任务结构正确
 4. **逐个执行** → 对每个无依赖的待处理任务：
-   - 调用 `claimTask` 认领
-   - 执行具体工作（调用其他工具完成）
-   - 调用 `completeTask` 标记完成
+    - 调用 `claimTask` 认领
+    - 执行具体工作（调用其他工具完成）
+    - 调用 `completeTask` 标记完成
 5. **检查进度** → 随时调用 `listTasks` 查看整体状态
 
 ### 高级流程：多 Agent 协作
@@ -149,3 +154,8 @@ TASK-D: "编写集成测试"              → 依赖 [TASK-B, TASK-C]
 - 认领后尽快完成，避免长时间占用任务导致整体进度阻塞
 - 如果认领后发现自己无法完成，目前系统不支持"放弃任务"，需要通知主 Agent 协调
 - `listTasks` 返回的是摘要（不含描述），节省 Token；需要详情时再用 `getTask`
+- 验证所有权：如果你发现 completeTask 报错“无权操作”，请先执行 getTask <taskId> 确认该任务当前状态及 owner 字段。如果
+  owner 为空或不是你，请重新执行 claimTask。
+- 依赖闭环：在尝试认领任务之前，务必通过 listTasks 确认该任务是否已被其他队友认领。
+- 任务完成后务必同时 `completeTask` + `sendMessage(STATUS_UPDATE)`，让 Lead 感知进度
+- 当无任务可做时，Teammate 应调用 `terminate`（系统会自动重启）

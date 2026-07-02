@@ -4,9 +4,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import redis.clients.jedis.JedisPooled;
-import redis.clients.jedis.params.ScanParams;
 
 import java.util.UUID;
+
+import static com.kaer.agent.ConstantPrompt.KEY_PREFIX;
 
 /**
  * 工具响应全局缓存服务，负责将超大工具响应存入 Redis 并提供分页读取。
@@ -19,20 +20,22 @@ import java.util.UUID;
  * </ol>
  *
  * <p>降级策略：Redis 不可用时返回 null，由调用方回退到硬截断。
+ *
+ * <p>实现了 {@link ToolResultStorage} 接口，作为工具结果存储的 Redis 后端。
  */
 @Slf4j
 @Component
-public class ToolResultCacheService {
+public class ToolResultCacheService implements ToolResultStorage {
 
-    private static final String KEY_PREFIX = "jchatmind:toolcache";
-    private static final int DEFAULT_TTL_SECONDS = 600; // 10 分钟
-    /** 单条工具响应最大缓存大小（1 MB），超过则不缓存直接硬截断 */
+    /**
+     * 单条工具响应最大缓存大小（1 MB），超过则不缓存直接硬截断
+     */
     private static final int MAX_CACHE_BYTES = 1_048_576;
 
     private final JedisPooled jedis;
 
     @Value("${jchatmind.tool-cache.ttl-seconds:600}")
-    private int ttlSeconds;
+    private int ttlSeconds;// 10 分钟
 
     public ToolResultCacheService(JedisPooled jedis) {
         this.jedis = jedis;
@@ -46,7 +49,25 @@ public class ToolResultCacheService {
      * @param fullResult 完整的工具响应文本
      * @return 生成的 CacheId；Redis 不可用或内容过大时返回 null
      */
+    // 方法一：使用默认 TTL
+    @Override
     public String store(String sessionId, String toolName, String fullResult) {
+        // 直接委托给方法二，传入类级别的默认 this.ttlSeconds
+        return store(sessionId, toolName, fullResult, this.ttlSeconds);
+    }
+
+    /**
+     * 存储工具响应（指定 TTL），供 L2 历史工具结果清理等需要更长过期时间的场景使用。
+     *
+     * @param sessionId        会话 ID
+     * @param toolName         工具名称
+     * @param fullResult       完整的工具响应文本
+     * @param customTtlSeconds 自定义过期时间（秒）
+     * @return 生成的 CacheId；Redis 不可用或内容过大时返回 null
+     */
+    // 方法二：核心实现，使用自定义 TTL
+    @Override
+    public String store(String sessionId, String toolName, String fullResult, int customTtlSeconds) {
         // 大小保护：超过 1MB 不缓存
         if (fullResult != null && fullResult.length() > MAX_CACHE_BYTES) {
             log.warn("[ToolCache] 工具响应过大({} bytes)，超过 {} bytes 上限，跳过缓存: tool={}",
@@ -61,19 +82,19 @@ public class ToolResultCacheService {
             String dataKey = buildDataKey(sessionId, cacheId);
             String metaKey = buildMetaKey(sessionId, cacheId);
 
-            // 存入主数据（设 TTL）
-            jedis.setex(dataKey, ttlSeconds, fullResult);
+            // 存入主数据（使用传入的 TTL）
+            jedis.setex(dataKey, customTtlSeconds, fullResult);
 
-            // 存入元数据
+            // 存入元数据（统一加上 ttlSeconds 字段记录）
             String metaJson = String.format(
-                    "{\"toolName\":\"%s\",\"sessionId\":\"%s\",\"totalChars\":%d,\"createdAt\":\"%s\"}",
+                    "{\"toolName\":\"%s\",\"sessionId\":\"%s\",\"totalChars\":%d,\"createdAt\":\"%s\",\"ttlSeconds\":%d}",
                     escapeJson(toolName), escapeJson(sessionId),
-                    fullResult.length(), java.time.Instant.now().toString()
+                    fullResult.length(), java.time.Instant.now().toString(), customTtlSeconds
             );
-            jedis.setex(metaKey, ttlSeconds, metaJson);
+            jedis.setex(metaKey, customTtlSeconds, metaJson);
 
             log.info("[ToolCache] 已缓存工具响应: cacheId={}, totalChars={}, ttl={}s",
-                    cacheId, fullResult.length(), ttlSeconds);
+                    cacheId, fullResult.length(), customTtlSeconds);
             return cacheId;
 
         } catch (Exception e) {
@@ -91,6 +112,7 @@ public class ToolResultCacheService {
      * @param length    读取字符数
      * @return 分页结果；缓存不存在时返回 null
      */
+    @Override
     public CacheReadResult read(String sessionId, String cacheId, int offset, int length) {
         String dataKey = buildDataKey(sessionId, cacheId);
 
@@ -136,6 +158,7 @@ public class ToolResultCacheService {
     /**
      * 删除指定 CacheId 的缓存。
      */
+    @Override
     public void delete(String sessionId, String cacheId) {
         try {
             jedis.del(buildDataKey(sessionId, cacheId));
@@ -144,7 +167,6 @@ public class ToolResultCacheService {
             log.warn("[ToolCache] 删除缓存失败: cacheId={}, sessionId={}", cacheId, sessionId, e);
         }
     }
-
 
 
     // ==================== 私有方法 ====================
@@ -180,5 +202,6 @@ public class ToolResultCacheService {
             int offsetEnd,
             int totalChars,
             String positionInfo
-    ) {}
+    ) {
+    }
 }

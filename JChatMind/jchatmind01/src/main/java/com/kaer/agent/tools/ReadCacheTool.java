@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.regex.Pattern;
 
 /**
- * 系统级内部工具：供 LLM 按需读取被缓存的工具响应。
+ * 系统级内部工具：供 LLM 按需读取被缓存的工具响应（统一 Redis 后端）。
  *
  * <p><b>安全防御机制（防止二次 OOM）:</b>
  * <ol>
@@ -47,7 +47,8 @@ public class ReadCacheTool implements Tool {
     private final ToolResultCacheService cacheService;
     private final TokenCounter tokenCounter;
 
-    public ReadCacheTool(ToolResultCacheService cacheService, TokenCounter tokenCounter) {
+    public ReadCacheTool(ToolResultCacheService cacheService,
+                         TokenCounter tokenCounter) {
         this.cacheService = cacheService;
         this.tokenCounter = tokenCounter;
     }
@@ -96,7 +97,6 @@ public class ReadCacheTool implements Tool {
             Integer length) {
 
         // ===== 1. 参数校验 =====
-
         if (cacheId == null || cacheId.isBlank()) {
             return buildError(" 参数错误: cacheId 不能为空。请从工具响应的截断提示中获取缓存编号。");
         }
@@ -136,21 +136,21 @@ public class ReadCacheTool implements Tool {
             return buildError(" 系统错误: 无法获取当前会话上下文。请稍后重试。");
         }
 
-        // ===== 3. 读取 Redis 缓存 =====
+        // ===== 3. 从 Redis 读取缓存 =====
         CacheReadResult result = cacheService.read(sessionId, cacheId, safeOffset, safeLength);
 
         if (result == null) {
             return buildError(String.format(
                     """
-                             缓存未找到或已过期: cacheId=%s
+                     缓存未找到或已过期: cacheId=%s
 
-                            可能原因:
-                            1. 缓存已超过有效期（10分钟）自动清除
-                            2. CacheId 输入有误，请检查截断提示中的缓存编号是否完整
-                            3. 该会话已结束，缓存已被清理
+                    可能原因:
+                    1. 缓存已超过有效期自动清除
+                    2. CacheId 输入有误，请检查截断提示中的缓存编号是否完整
+                    3. 该会话已结束，缓存已被清理
 
-                            建议: 如果确实需要完整数据，请重新触发原始工具调用。
-                            """,
+                    建议: 如果确实需要完整数据，请重新触发原始工具调用。
+                    """,
                     cacheId));
         }
 
@@ -170,8 +170,6 @@ public class ReadCacheTool implements Tool {
         if (result.offsetEnd() < result.totalChars()) {
             int remaining = result.totalChars() - result.offsetEnd();
             response.append(String.format("""
-
-
                     ─────────────────────────────────────────────
                      还有 %d 字符未读取 (%.1f%% 剩余)
                      继续读取下一页:

@@ -18,6 +18,8 @@ public class AsyncConfig {
         executor.setMaxPoolSize(10);
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("async-event-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
         executor.initialize();
         return executor;
     }

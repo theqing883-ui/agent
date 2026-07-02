@@ -192,4 +192,12 @@ public class TaskServiceImpl implements TaskService {
             return task;
         });
     }
+
+    /**
+     * 判断任务id是否存在
+     */
+    @Override
+    public boolean exists(String taskId) {
+        return taskStore.containsKey(taskId);
+    }
 }

@@ -46,14 +46,12 @@ description: 数据库表结构设计说明文档，包含 AI 代理、聊天会
 | **created_at** | timestamp | `CURRENT_TIMESTAMP` | 记录创建时间 |
 
 ### 键与索引 (Keys & Indexes)
-| 类型 | 名称 | 涉及字段 | 关联目标 / 备注 |
-| :--- | :--- | :--- | :--- |
-| **主键 (Primary Key)** | `chat_memory_note_pkey` | `id` | 唯一标识一行记忆笔记 |
-| **唯一约束 (Unique)** | `uk_session_id` | `session_id` | 每个会话有唯一的记忆节点记录 |
-| **外键 (Foreign Key)** | `fk_chat_memory_note_session_id` | `session_id` | 关联至 `chat_session (id)` |
-| **唯一索引 (Unique Index)** | `chat_memory_note_pkey` | `id` | 自动生成的主键索引 |
-| **唯一索引 (Unique Index)** | `uk_session_id` | `session_id` | 确保会话唯一性约束 |
-| **常规索引 (Index)** | `idx_memory_note_session` | `session_id` | 提升基于会话 ID 的查询效率 |
+| 类型 | 名称 | 涉及字段 | 关联目标 / 备注                        |
+| :--- | :--- | :--- |:---------------------------------|
+| **主键 (Primary Key)** | `chat_memory_note_pkey` | `id` | 唯一标识一行记忆笔记                       |
+| **外键 (Foreign Key)** | `fk_chat_memory_note_session_id` | `session_id` | 关联至 `chat_session (id)`          |
+| **唯一索引 (Unique Index)** | `chat_memory_note_pkey` | `id` | 自动生成的主键索引                        |
+| **常规索引 (Index)** | `idx_memory_note_session` | `session_id` | 提升基于会话 ID 的查询效率                    |
 
 ---
 

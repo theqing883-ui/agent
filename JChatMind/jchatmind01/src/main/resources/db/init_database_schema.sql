@@ -87,7 +87,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_session_id ON chat_message(session_i
 -- 聊天记忆笔记表 (chat_memory_note)
 CREATE TABLE IF NOT EXISTS chat_memory_note (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID UNIQUE REFERENCES chat_session(id) ON DELETE CASCADE,
+    session_id UUID  REFERENCES chat_session(id) ON DELETE CASCADE,
     content TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,5 +1,7 @@
 package com.kaer.agent;
 
+import com.kaer.agent.messagebus.MessageBus;
+import com.kaer.agent.messagebus.MessageRecord;
 import com.kaer.agent.skill.SkillMeta;
 import com.kaer.context.manager.ContextWindowManager;
 import com.kaer.context.memory.TokenAwareChatMemory;
@@ -20,6 +22,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -31,6 +34,7 @@ import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -38,8 +42,10 @@ import java.util.stream.IntStream;
 public class JChatMind {
     // AI 返回的，已经持久化，但是需要 sse 发给前端的消息
     private final List<ChatMessageDTO> pendingChatMessages = new ArrayList<>();
+    // 待响应请求注册表：requestId → PendingRequest（用于 Req-ACK 匹配）
+    private final ConcurrentHashMap<String, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
     // 默认最多循环次数（可由 setter 覆盖）
-    private int maxSteps = 50;
+    private int maxSteps = 20;
     // 智能体 ID
     private String agentId;
     // 名称
@@ -62,11 +68,10 @@ public class JChatMind {
     private ToolCallingManager toolCallingManager;
     // Token 感知的聊天记忆（替代 MessageWindowChatMemory）
     private TokenAwareChatMemory chatMemory;
-    // 模型的聊天会话 ID
-    private String chatSessionId;
     // 子任务模型的聊天会话 ID
 //    private String childChatSessionId;
-
+    // 模型的聊天会话 ID
+    private String chatSessionId;
     // ChatOptions（含上下文窗口配置）
     private AgentDTO.ChatOptions agentChatOptions;
     // SSE 服务
@@ -77,29 +82,30 @@ public class JChatMind {
     private ChatResponse lastChatResponse;
     // 上下文窗口管理器
     private ContextWindowManager contextWindowManager;
-    // 工具响应截断器
-    private ContextTruncator contextTruncator;
+
     // 韧性错误恢复引擎
     private ErrorRecoveryEngine errorRecoveryEngine;
     // 当前模型名称（用于备胎切换查找）
     private String modelName;
+    // 消息总线（可选注入，用于多 Agent 协作时的收件箱轮询）
+    private MessageBus messageBus;
 
     public JChatMind() {
     }
 
-    public JChatMind(String agentId, String name, String description, String systemPrompt,
-                     ChatClient chatClient,
-                     TokenAwareChatMemory chatMemory,
-                     AgentDTO.ChatOptions agentChatOptions,
-                     List<ToolCallback> availableTools, List<KnowledgeBaseDTO> availableKbs,
-                     List<SkillMeta> availableSkills,
-                     String chatSessionId, SseService sseService,
-                     ChatMessageFacadeService chatMessageFacadeService,
-                     ChatMessageConverter chatMessageConverter,
-                     ContextWindowManager contextWindowManager,
-                     ContextTruncator contextTruncator,
-                     ErrorRecoveryEngine errorRecoveryEngine,
-                     String modelName
+    public JChatMind(
+            String agentId, String name, String description, String systemPrompt,
+            ChatClient chatClient,
+            TokenAwareChatMemory chatMemory,
+            AgentDTO.ChatOptions agentChatOptions,
+            List<ToolCallback> availableTools, List<KnowledgeBaseDTO> availableKbs,
+            List<SkillMeta> availableSkills,
+            String chatSessionId, SseService sseService,
+            ChatMessageFacadeService chatMessageFacadeService,
+            ChatMessageConverter chatMessageConverter,
+            ContextWindowManager contextWindowManager,
+            ErrorRecoveryEngine errorRecoveryEngine,
+            String modelName
     ) {
         this.agentId = agentId;
         this.name = name;
@@ -116,7 +122,6 @@ public class JChatMind {
         this.chatMessageFacadeService = chatMessageFacadeService;
         this.chatMessageConverter = chatMessageConverter;
         this.contextWindowManager = contextWindowManager;
-        this.contextTruncator = contextTruncator;
         this.errorRecoveryEngine = errorRecoveryEngine;
         this.modelName = modelName;
         this.agentState = AgentState.IDLE;
@@ -143,6 +148,30 @@ public class JChatMind {
             // 设置 Agent 上下文（用于 DelegationTool 获取父会话信息）
             AgentContextHolder.set(this.chatSessionId, this.agentId);
 
+            /*
+            // Javac 编译器把你的 Lambda 翻译成了这样：
+            AgentContextHolder.setPendingRequestCallback(
+                // 凭空 new 了一个实现了 Consumer 接口的对象
+                new Consumer<PendingRequest>() {
+
+                    // 强制重写（Override）接口里的 accept 方法
+                    @Override
+                    public void accept(PendingRequest pr) {
+                        // 你的大括号里的业务逻辑，原封不动地变成了 accept 方法的方法体！
+                        if (pr != null) {
+                            JChatMind.this.pendingRequests.put(pr.getRequestId(), pr);
+                        }
+                    }
+
+                }
+            );
+            * */
+            // 注册 PendingRequest 回调：SendMessageTool 发 REQUEST 后自动注册到本实例，等价于上面
+            AgentContextHolder.setPendingRequestCallback(
+                    pr -> {
+                        if (pr != null) this.pendingRequests.put(pr.getRequestId(), pr);
+                    });
+
             // Agent 主循环：最多执行 maxSteps 次，或直到状态变为 FINISHED
             for (int i = 0; i < this.maxSteps && agentState != AgentState.FINISHED; i++) {
                 // 当前步骤编号（从1开始）
@@ -150,6 +179,9 @@ public class JChatMind {
 
                 // 执行单步：思考（think）+ 执行（execute）
                 step();
+
+                // 轮询收件箱：将队友汇报以 UserMessage 形式注入 chatMemory
+                pollInbox();
 
                 // 检查是否达到最大步骤限制
                 if (currentStep >= this.maxSteps) {
@@ -167,14 +199,14 @@ public class JChatMind {
             throw new RuntimeException("Error running agent", e);
         } finally {
             // 清除 Agent 上下文，防止 ThreadLocal 内存泄漏
-            AgentContextHolder.clear();
+            AgentContextHolder.clearSessionIdAndAgentIdAndPendingRequest();
         }
     }
 
     private void step() {
         // 检查是否需要生成记忆笔记
         int noteInterval = agentChatOptions.getMemoryNoteIntervalTurns() != null
-                ? agentChatOptions.getMemoryNoteIntervalTurns() : 8;
+                ? agentChatOptions.getMemoryNoteIntervalTurns() : 10;
         Boolean noteEnabled = agentChatOptions.getMemoryNoteEnabled();
         if (noteEnabled != null && noteEnabled
                 && contextWindowManager.shouldGenerateNote(chatSessionId, noteInterval)) {
@@ -225,7 +257,9 @@ public class JChatMind {
         // 配置聊天选项：禁用内部工具执行，由 Agent 手动处理
         ChatOptions chatOpts = DefaultToolCallingChatOptions.builder()
                 .internalToolExecutionEnabled(false)
-                .maxTokens(initialMaxTokens)
+                .temperature(this.agentChatOptions.getTemperature())
+                .topP(this.agentChatOptions.getTopP())
+                .maxTokens(initialMaxTokens) // LLM单次响应的最大Token
                 .build();
 
         // 构建完整的 Prompt 对象
@@ -446,6 +480,91 @@ public class JChatMind {
      */
     public void setMaxSteps(int maxSteps) {
         this.maxSteps = maxSteps;
+    }
+
+    // 在 JChatMind.java 中添加
+    public void resetForNextRun() {
+        this.agentState = AgentState.IDLE;
+        // 如果有其他需要每轮清空的临时变量（如步数计数器等），也在这里清空
+    }
+
+    // ===== 多 Agent 协作 (MessageBus) 支持 =====
+
+    /**
+     * 注入 MessageBus（供 JChatMindFactory 调用）。
+     *
+     * <p>当 MessageBus 可用时，Agent 在每步循环末尾自动轮询自己的收件箱，
+     * 将队友汇报以 {@link UserMessage} 形式注入 chatMemory。
+     * 如果未注入，则收件箱轮询被静默跳过，不影响现有行为。
+     */
+    public void setMessageBus(MessageBus messageBus) {
+        this.messageBus = messageBus;
+    }
+
+    /**
+     * 轮询收件箱，将队友汇报以 UserMessage 形式注入 chatMemory。
+     *
+     * <p>设计理念：
+     * <ul>
+     *   <li>语义正确：队友汇报是"外部输入"，用 UserMessage 承载</li>
+     *   <li>Token 管理：ContextWindowManager 统一管理上下文窗口预算</li>
+     *   <li>零侵入：think() 方法无需修改，收件箱消息自然出现在下一轮思考中</li>
+     *   <li>重试安全：chatMemory 已持久化，不会重复注入</li>
+     * </ul>
+     *
+     * <p>消息格式：{@code [${type} from ${sender}] ${content}}
+     *
+     * <p>当 MessageBus 未注入时，此方法静默返回。
+     */
+    private void pollInbox() {
+        if (messageBus == null) {
+            return;
+        }
+        try {
+            List<MessageRecord> messages = messageBus.readInbox(this.agentId);
+            if (messages.isEmpty()) {
+                return;
+            }
+            for (MessageRecord msg : messages) {
+                String formatted;
+                String reqId = msg.getRequestId();
+                MessageRecord.Type msgType = msg.getType();
+
+                // 防止 ConcurrentHashMap 的 null key 崩溃
+                PendingRequest pending = null;
+                if (reqId != null && !reqId.isBlank()) {
+                    // 尝试用 requestId 做 pending request 匹配
+                    pending = pendingRequests.get(reqId);
+                }
+
+                if (pending != null && MessageRecord.Type.RESPONSE == msgType) {
+                    // 匹配成功：收到对我之前发出的 REQUEST 的回复 (ACK)
+                    pending.setStatus(PendingRequest.Status.RESPONDED);
+                    pending.setResponseContent(msg.getContent());
+                    pending.setRespondedAt(msg.getTimestamp());
+                    formatted = String.format(
+                            "[RESPONSE from %s for %s]: %s",
+                            msg.getSender(), msg.getRequestId(), msg.getContent());
+                    log.info("PendingRequest 匹配成功: requestId={}, sender={}",
+                            msg.getRequestId(), msg.getSender());
+                } else if (MessageRecord.Type.REQUEST == msgType) {
+                    // 收到别人发给我的全新指令！(此时 pending 通常为 null，不要去判断它)
+                    formatted = String.format(
+                            "[REQUEST from %s (id: %s)]: %s",
+                            msg.getSender(), msg.getRequestId(), msg.getContent());
+                } else {
+                    // 无匹配的普通消息（STATUS_UPDATE 或无对应 pending request 的 RESPONSE）
+                    formatted = String.format(
+                            "[%s from %s]: %s",
+                            msg.getType(), msg.getSender(), msg.getContent());
+                }
+                chatMemory.add(this.chatSessionId, new UserMessage(formatted));
+                log.info("收件箱消息已注入: sender={}, type={}, requestId={}",
+                        msg.getSender(), msg.getType(), msg.getRequestId());
+            }
+        } catch (Exception e) {
+            log.warn("收件箱轮询失败: agentId={}, error={}", this.agentId, e.getMessage());
+        }
     }
 
     /**

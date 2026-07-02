@@ -5,11 +5,10 @@ public record TokenUsage(
         int systemPromptTokens,
         int toolDefinitionsTokens,
         int messageTokens,
-        int summaryTokens,
         int memoryNoteTokens
 ) {
 
     public static TokenUsage zero() {
-        return new TokenUsage(0, 0, 0, 0, 0, 0);
+        return new TokenUsage(0, 0, 0, 0, 0);
     }
 }

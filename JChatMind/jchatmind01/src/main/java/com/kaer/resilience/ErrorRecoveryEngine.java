@@ -161,6 +161,11 @@ public class ErrorRecoveryEngine {
                             e.getMessage());
 
                     switch (errorType) {
+                        case FATAL_INTERRUPTED -> {
+                            log.warn("[Resilience] 线程被中断，放弃重试: session={}", chatSessionId);
+                            throw new RuntimeException(
+                                    "[Resilience] 线程被中断，终止 Agent 执行", e);
+                        }
                         case OVERLOADED_529 -> {
                             currentClient = handle529(e, currentClient, chatSessionId, state);
                             // 529 退避后继续循环，使用（可能已切换的）Client 重试
@@ -609,6 +614,11 @@ public class ErrorRecoveryEngine {
      * 原始状态码和错误消息会出现在异常 message 或 cause chain 中。
      */
     private ErrorType classifyException(Exception e) {
+        // 线程中断 —— 优先检测，立即终止，不进入重试循环
+        if (isInterruptException(e)) {
+            return ErrorType.FATAL_INTERRUPTED;
+        }
+
         String fullMessage = getFullExceptionMessage(e).toLowerCase();
 
         // 529 Overloaded —— 优先匹配（状态码更具体）
@@ -639,6 +649,21 @@ public class ErrorRecoveryEngine {
         }
 
         return ErrorType.UNKNOWN;
+    }
+
+    /**
+     * 遍历异常 cause chain，检查是否由线程中断引起。
+     */
+    private boolean isInterruptException(Throwable e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current instanceof InterruptedException
+                    || current instanceof org.springframework.retry.backoff.BackOffInterruptedException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /**
@@ -685,7 +710,8 @@ public class ErrorRecoveryEngine {
             Thread.sleep(millis);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            log.warn("[Resilience] 退避等待被中断");
+            log.warn("[Resilience] 退避等待被中断，终止当前恢复流程");
+            throw new RuntimeException("[Resilience] 线程被中断，放弃重试", ie);
         }
     }
 
@@ -851,6 +877,10 @@ public class ErrorRecoveryEngine {
      * LLM 调用异常分类。
      */
     private enum ErrorType {
+        /**
+         * 线程中断 —— 不可恢复，需立即终止 Agent 执行
+         */
+        FATAL_INTERRUPTED,
         /**
          * 529 Server Overloaded —— 需备胎切换
          */

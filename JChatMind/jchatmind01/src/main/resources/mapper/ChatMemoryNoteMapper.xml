@@ -19,10 +19,7 @@
             keyColumn="id" keyProperty="id" useGeneratedKeys="true">
         INSERT INTO chat_memory_note
             (session_id, content, created_at)
-        VALUES (CAST(#{sessionId} AS uuid), #{content}, #{createdAt}) ON CONFLICT (session_id)
-    DO
-        UPDATE SET
-            content = EXCLUDED.content
+        VALUES (CAST(#{sessionId} AS uuid), #{content}, #{createdAt})
     </insert>
 
     <select id="selectBySessionId" resultMap="BaseResultMap">

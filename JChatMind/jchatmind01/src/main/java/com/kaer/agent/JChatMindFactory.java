@@ -1,13 +1,13 @@
 package com.kaer.agent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.kaer.agent.messagebus.MessageBus;
 import com.kaer.agent.skill.SkillManager;
 import com.kaer.agent.skill.SkillMeta;
 import com.kaer.agent.tools.Tool;
 import com.kaer.config.ChatClientRegistry;
 import com.kaer.context.manager.ContextWindowManager;
 import com.kaer.context.memory.TokenAwareChatMemory;
-import com.kaer.context.truncator.ContextTruncator;
 import com.kaer.converter.AgentConverter;
 import com.kaer.converter.ChatMessageConverter;
 import com.kaer.converter.KnowledgeBaseConverter;
@@ -29,6 +29,7 @@ import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.aop.support.AopUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -95,10 +96,16 @@ public class JChatMindFactory {
      */
     private final ContextWindowManager contextWindowManager;
 
-    private final ContextTruncator contextTruncator;
     private final TokenAwareChatMemory chatMemory;
     private final SkillManager skillManager;
     private final ErrorRecoveryEngine errorRecoveryEngine;
+
+    /**
+     * 消息总线（可选注入，用于多 Agent 协作时的收件箱轮询）。
+     * 当 Spring 容器中存在 MessageBus Bean 时自动注入，否则为 null。
+     */
+    @Autowired(required = false)
+    private MessageBus messageBus;
 
     /**
      * 运行时 Agent 配置（线程局部变量，用于构建过程中的临时存储）
@@ -117,7 +124,6 @@ public class JChatMindFactory {
             ChatMessageFacadeService chatMessageFacadeService,
             ChatMessageConverter chatMessageConverter,
             ContextWindowManager contextWindowManager,
-            ContextTruncator contextTruncator,
             TokenAwareChatMemory tokenAwareChatMemory,
             KnowledgeBaseMapper knowledgeBaseMapper,
             KnowledgeBaseConverter knowledgeBaseConverter,
@@ -132,7 +138,6 @@ public class JChatMindFactory {
         this.chatMessageFacadeService = chatMessageFacadeService;
         this.chatMessageConverter = chatMessageConverter;
         this.contextWindowManager = contextWindowManager;
-        this.contextTruncator = contextTruncator;
         this.chatMemory = tokenAwareChatMemory;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.knowledgeBaseConverter = knowledgeBaseConverter;
@@ -178,7 +183,6 @@ public class JChatMindFactory {
      *
      * @param agentId                   Agent 唯一标识
      * @param chatSessionId             子会话唯一标识
-     * @param maxSteps                  子 Agent 最大循环步数
      * @param excludeToolNames          要排除的工具名称列表（如 "delegateTask"）
      * @param childSystemPromptOverride 子 Agent 系统提示词覆盖（null 则使用 Agent 原始配置）
      * @return 构建完成的子 JChatMind 实例
@@ -186,7 +190,6 @@ public class JChatMindFactory {
     public JChatMind createForDelegation(
             String agentId,
             String chatSessionId,
-            int maxSteps,
             List<String> excludeToolNames,
             String childSystemPromptOverride
     ) {
@@ -194,8 +197,8 @@ public class JChatMindFactory {
         Agent agent = loadAgent(agentId);
         // 2. 转换为运行时配置 DTO
         agentConfig = toAgentConfig(agent);
-        log.debug("createForDelegation agentId={}, sessionId={}, maxSteps={}, excludeTools={}",
-                agentId, chatSessionId, maxSteps, excludeToolNames);
+        log.debug("createForDelegation agentId={}, sessionId={}, excludeTools={}",
+                agentId, chatSessionId, excludeToolNames);
 
         // 3. 加载聊天历史作为记忆（子会话仅含任务指令的 USER 消息）
         List<Message> memory = loadMemory(chatSessionId);
@@ -214,13 +217,9 @@ public class JChatMindFactory {
         List<ToolCallback> toolCallbacks = buildToolCallbacks(tools);
 
         // 7. 组装子 Agent 实例（传入系统提示词覆盖）
-        JChatMind childAgent = buildAgentRuntime(agent, memory, knowledgeBase, toolCallbacks,
+
+        return buildAgentRuntime(agent, memory, knowledgeBase, toolCallbacks,
                 chatSessionId, childSystemPromptOverride);
-
-        // 8. 设置子 Agent 专属的缩减步数
-        childAgent.setMaxSteps(maxSteps);
-
-        return childAgent;
     }
 
     /**
@@ -258,7 +257,7 @@ public class JChatMindFactory {
         // 获取可用技能列表（启动时扫描的全局注册表）
         List<SkillMeta> availableSkills = skillManager.getAllSkillMetas();
 
-        return new JChatMind(
+        JChatMind jChatMind = new JChatMind(
                 agent.getId(),
                 agent.getName(),
                 agent.getDescription(),
@@ -274,10 +273,16 @@ public class JChatMindFactory {
                 chatMessageFacadeService,
                 chatMessageConverter,
                 contextWindowManager,
-                contextTruncator,
                 errorRecoveryEngine,
                 agent.getModel()
         );
+
+        // 如果 MessageBus 可用，注入到 Agent 中以启用收件箱轮询
+        if (messageBus != null) {
+            jChatMind.setMessageBus(messageBus);
+        }
+
+        return jChatMind;
     }
 
     /**

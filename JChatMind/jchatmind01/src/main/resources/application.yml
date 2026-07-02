@@ -36,7 +36,7 @@ spring:
             bocha-search:
               command: node
               args:
-                - "./jchatmind01/mcp/bocha-mcp.js"
+                - "./JChatMind/jchatmind01/mcp/bocha-mcp.js"
               env:
                 BOCHA_API_KEY: ${API-KEY-bocha-search}
                 BOCHA_ENDPOINT: "https://api.bochaai.com/v1/web-search"
@@ -67,6 +67,7 @@ mybatis:
 document:
   storage:
     base-path: ./jchatmind01/data/documents
+
 
 # ========================================================================
 # 韧性引擎配置（Error Recovery Engine）
@@ -103,3 +104,37 @@ jchatmind:
     trigger-tokens: 4000             # 触发缓存的 token 阈值
     shown-tokens: 2000               # 截断后展示给 LLM 的 token 数
     read-max-chars: 16000            # ReadCacheTool 单次最大读取字符数
+
+# ========================================================================
+# 多 Agent 协作配置（MessageBus + Teammate）
+# ========================================================================
+# ========================================================================
+# 上下文压缩配置（Context Compactor）
+# 四级降级策略：L3(工具响应截断) → L2(历史工具清理→Redis) → L1(滑动窗口) → L4(LLM摘要)
+# ========================================================================
+  context-compactor:
+    enabled: true                       # 总开关
+    l1:
+      keep-first-k: 10                  # L1 滑动窗口：保留开头 K 条消息
+      keep-last-n: 30                   # L1 滑动窗口：保留末尾 N 条消息
+    l2:
+      max-kept-results: 5               # L2 历史清理：保留最近 M 条工具结果
+      cache-ttl-seconds: 604800         # L2 归档 Redis 缓存 TTL（秒），默认 7 天
+    l4:
+      enabled: true                     # L4 LLM 摘要：是否启用
+      cheap-model: null                 # L4 廉价模型，null = 使用主模型
+
+# ========================================================================
+# 多 Agent 协作配置（MessageBus + Teammate）
+# ========================================================================
+agent:
+  # 消息总线：基于 .jsonl 文件的 Agent 间异步通信
+  messagebus:
+    inbox-dir: ./jchatmind01/data/inboxes   # 收件箱文件存储目录
+  # 队友配置：后台 Teammate Worker 的运行参数
+  teammate:
+    max-steps: 20                            # JChatMind 单轮最大 think-execute 步数
+    restart-delay-ms: 2000                   # agent.run() 退出后重启前的等待间隔（毫秒）
+    excluded-tools:                          # 队友创建时排除的工具（防止递归委派/无限唤醒）
+      - delegateTask
+      - spawnTeammate

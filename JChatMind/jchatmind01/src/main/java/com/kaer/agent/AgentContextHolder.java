@@ -2,6 +2,8 @@ package com.kaer.agent;
 
 import com.kaer.resilience.RecoveryState;
 
+import java.util.function.Consumer;
+
 /**
  * Agent 上下文持有者——使用 ThreadLocal 存储当前线程运行的 Agent 的会话信息。
  * <p>
@@ -27,6 +29,25 @@ public class AgentContextHolder {
      * 在 finally 块中清除。
      */
     private static final ThreadLocal<RecoveryState> RECOVERY_STATE = new ThreadLocal<>();
+
+    /**
+     * Lead Agent 名称 —— Teammate 需要知道回复谁。
+     * 由 {@link TeammateWorker} 在调用 agent.run() 前设置。
+     */
+    private static final ThreadLocal<String> LEAD_NAME = new ThreadLocal<>();
+
+    /**
+     * PendingRequest 注册回调 —— SendMessageTool 发送 REQUEST 后，
+     * 通过此回调将 PendingRequest 注册到 JChatMind.pendingRequests 中。
+     * 由 JChatMind.run() 在设置上下文时注册。
+     */
+    private static final ThreadLocal<Consumer<PendingRequest>> PENDING_REQUEST_CALLBACK = new ThreadLocal<>();
+
+    /**
+     * 队友优雅停止标志 —— ShutdownTool 调用后置为 true，
+     * TeammateWorker 在 agent.run() 返回后检查此标志，决定是否重启。
+     */
+    private static final ThreadLocal<Boolean> NEEDS_SHUTDOWN = new ThreadLocal<>();
 
     private AgentContextHolder() {
         // 工具类，禁止实例化
@@ -61,6 +82,31 @@ public class AgentContextHolder {
         return CURRENT_AGENT_ID.get();
     }
 
+    // ==================== Lead Name ThreadLocal 管理 ====================
+
+    public static String getLeadName() {
+        return LEAD_NAME.get();
+    }
+
+    public static void setLeadName(String name) {
+        LEAD_NAME.set(name);
+    }
+
+    // ==================== PendingRequest Callback ThreadLocal 管理 ====================
+
+    public static Consumer<PendingRequest> getPendingRequestCallback() {
+        return PENDING_REQUEST_CALLBACK.get();
+    }
+
+    public static void setPendingRequestCallback(Consumer<PendingRequest> cb) {
+        PENDING_REQUEST_CALLBACK.set(cb);
+    }
+
+    // ==================== Shutdown 标志管理 ====================
+
+    public static void markNeedsShutdown() { NEEDS_SHUTDOWN.set(true); }
+    public static boolean needsShutdown() { return Boolean.TRUE.equals(NEEDS_SHUTDOWN.get()); }
+
     // ==================== RecoveryState ThreadLocal 管理 ====================
 
     /**
@@ -77,14 +123,6 @@ public class AgentContextHolder {
         return state;
     }
 
-    /**
-     * 直接设置当前线程的 {@link RecoveryState}（用于 Engine 入口初始化）。
-     *
-     * @param state 恢复状态实例
-     */
-    public static void setRecoveryState(RecoveryState state) {
-        RECOVERY_STATE.set(state);
-    }
 
     /**
      * 清除当前线程的 RecoveryState，防止线程池复用时的状态污染。
@@ -108,6 +146,21 @@ public class AgentContextHolder {
     public static void clear() {
         CURRENT_SESSION_ID.remove();
         CURRENT_AGENT_ID.remove();
+        LEAD_NAME.remove();
+        PENDING_REQUEST_CALLBACK.remove();
+        NEEDS_SHUTDOWN.remove();
         clearRecoveryState();
+    }
+
+    public static void clearSessionIdAndAgentIdAndPendingRequest() {
+        CURRENT_SESSION_ID.remove();
+        CURRENT_AGENT_ID.remove();
+        PENDING_REQUEST_CALLBACK.remove();
+        NEEDS_SHUTDOWN.remove();
+    }
+
+    public static void clearLeadName() {
+        LEAD_NAME.remove();
+        NEEDS_SHUTDOWN.remove();
     }
 }

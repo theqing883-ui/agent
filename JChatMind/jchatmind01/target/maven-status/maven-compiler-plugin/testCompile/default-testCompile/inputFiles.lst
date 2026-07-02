@@ -1,2 +1,6 @@
-E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\test\java\com\kaer\Jchatmind01ApplicationTests.java
-E:\Java_project\Jchatmind\JChatMind\jchatmind01\src\test\java\com\kaer\service\TaskServiceTest.java
+E:\Java_project\JchatMind\JChatMind\jchatmind01\src\test\java\com\kaer\agent\TeammateCollaborationTest.java
+E:\Java_project\JchatMind\JChatMind\jchatmind01\src\test\java\com\kaer\context\compact\CompactorPipelineTest.java
+E:\Java_project\JchatMind\JChatMind\jchatmind01\src\test\java\com\kaer\context\compact\L1SlidingWindowTrimTest.java
+E:\Java_project\JchatMind\JChatMind\jchatmind01\src\test\java\com\kaer\context\compact\L4FullSummaryFallbackTest.java
+E:\Java_project\JchatMind\JChatMind\jchatmind01\src\test\java\com\kaer\Jchatmind01ApplicationTests.java
+E:\Java_project\JchatMind\JChatMind\jchatmind01\src\test\java\com\kaer\service\TaskServiceTest.java

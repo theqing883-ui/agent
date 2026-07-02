@@ -1,0 +1,32 @@
+-------------------------------------------------------------------------------
+Test set: com.kaer.context.compact.CompactorPipelineTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 0, Errors: 4, Skipped: 0, Time elapsed: 0.018 s <<< FAILURE! -- in com.kaer.context.compact.CompactorPipelineTest
+com.kaer.context.compact.CompactorPipelineTest.manyMessagesGoesThroughLevels -- Time elapsed: 0.012 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "com.kaer.context.compact.CompactorPipeline.compact(java.util.List, com.kaer.context.compact.CompactorContext)" because "this.pipeline" is null
+	at com.kaer.context.compact.CompactorPipelineTest.manyMessagesGoesThroughLevels(CompactorPipelineTest.java:100)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.kaer.context.compact.CompactorPipelineTest.smallMessagesAllPassThrough -- Time elapsed: 0.001 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "com.kaer.context.compact.CompactorPipeline.compact(java.util.List, com.kaer.context.compact.CompactorContext)" because "this.pipeline" is null
+	at com.kaer.context.compact.CompactorPipelineTest.smallMessagesAllPassThrough(CompactorPipelineTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.kaer.context.compact.CompactorPipelineTest.hugeBudgetExitsAtL3 -- Time elapsed: 0.001 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "com.kaer.context.compact.CompactorPipeline.compact(java.util.List, com.kaer.context.compact.CompactorContext)" because "this.pipeline" is null
+	at com.kaer.context.compact.CompactorPipelineTest.hugeBudgetExitsAtL3(CompactorPipelineTest.java:114)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.kaer.context.compact.CompactorPipelineTest.emptyMessages -- Time elapsed: 0.001 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "com.kaer.context.compact.CompactorPipeline.compact(java.util.List, com.kaer.context.compact.CompactorContext)" because "this.pipeline" is null
+	at com.kaer.context.compact.CompactorPipelineTest.emptyMessages(CompactorPipelineTest.java:123)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+

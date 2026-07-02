@@ -56,6 +56,18 @@ public class CreateTaskTool implements Tool {
             if (description == null || description.isBlank()) {
                 return buildError("参数错误: description（任务描述）不能为空");
             }
+            if (blockedBy != null && !blockedBy.isEmpty()) {
+                for (String id : blockedBy) {
+                    // 格式校验：强制要求以 TASK- 开头
+                    if (!id.startsWith("TASK-")) {
+                        return buildError("创建任务失败: 无效的依赖 ID '" + id + "'。必须使用系统生成的完整 ID（例如 'TASK-...'），不能使用序号。");
+                    }
+                    // 存在性校验：确保前置任务确实存在
+                    if (!taskService.exists(id)) {
+                        return buildError("创建任务失败: 找不到 ID 为 '" + id + "' 的前置任务。请确保该任务已先被创建。");
+                    }
+                }
+            }
 
             Task task = taskService.createTask(subject, description, blockedBy);
 
